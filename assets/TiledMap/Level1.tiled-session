@@ -1,0 +1,33 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "",
+    "expandedProjectPaths": [
+    ],
+    "fileStates": {
+        "": {
+            "scaleInDock": 1
+        },
+        "#tilemap-backgrounds_packed": {
+            "scaleInEditor": 1
+        }
+    },
+    "last.imagePath": "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/TiledMap/Tilemap",
+    "map.height": 25,
+    "map.lastUsedFormat": "tmx",
+    "map.tileHeight": 18,
+    "map.tileWidth": 18,
+    "map.width": 180,
+    "openFiles": [
+    ],
+    "project": "Level1.tiled-project",
+    "recentFiles": [
+    ],
+    "tileset.embedInMap": true,
+    "tileset.tileSize": {
+        "height": 24,
+        "width": 24
+    }
+}
