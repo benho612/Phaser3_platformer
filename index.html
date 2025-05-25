@@ -3,12 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BulletHell</title>
+    <title>Phaser3_platformer</title>
     <script src="./lib/phaser.js"></script>
-    <script src="./src/Scenes/start_scene.js"></script>
+    <script src="./src/Scenes/Load.js"></script>
     <script src="./src/Scenes/game_scene.js"></script>
-    <script src="./src/Scenes/end_scene.js"></script>
     <script src="./src/main.js"></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #phaser-game {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 </head>
 <body>
     <div id="phaser-game"></div>

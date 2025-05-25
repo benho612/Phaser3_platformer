@@ -8,16 +8,29 @@
 let config = {
     parent: 'phaser-game',
     type: Phaser.CANVAS,
-    render: { pixelArt: true },
-    width: 700,
-    height: 500,
-    scene: [start_scene, game_scene, end_scene], 
-    physics: {default: 'arcade'},
-    fps: { forceSetTimeOut: true, target: 60 }
+    render: {
+        pixelArt: true  // prevent pixel art from getting blurred when scaled
+    },
+    physics: {
+        default: 'arcade',
+        arcade: {
+            debug: false,
+            gravity: {
+                x: 0,
+                y: 0
+            }
+        }
+    },
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    scene: [Load, game_scene]
 }
 
 
-const game = new Phaser.Game(config);
+var cursors;
+const SCALE = 2.0;
+var my = {sprite: {}, text: {}, vfx: {}};
 
-game.scene.start("main_menu");
- 
+const game = new Phaser.Game(config);

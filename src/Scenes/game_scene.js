@@ -1,395 +1,249 @@
 class game_scene extends Phaser.Scene {
-  constructor() {
-      super("game_scene");
+    constructor() {
+        super("game_scene");
+    }
 
-      this.my = {
-          sprite: {},
-          bullets: [],
-          enemies: [],
-          hearts: [],
-          text: {}
-      };
+    init() {
+        // variables and settings
+        this.ACCELERATION = 250;
+        this.DRAG = 500;    // DRAG < ACCELERATION = icy slide
+        this.physics.world.gravity.y = 1500;
+        this.JUMP_VELOCITY = -500;
+        this.PARTICLE_VELOCITY = 50;
+        this.SCALE = 2.0;
 
-      this.bodyX = 350;
-      this.bodyY = 450;
+        this.wasOnGround = false;
+        this.jumpCount = 0;
+        this.maxJumps = 2;
 
-     // Define paths here
-     this.zigzagPath = [
-        { x: 50, y: 100 },
-        { x: 120, y: 200 },
-        { x: 200, y: 150 },
-        { x: 300, y: 300 }
-    ];
+        this.score = 0;
+        this.levelCompleted = false;
+    }
 
-    this.divePath = [
-        { x: 600, y: 50 },
-        { x: 500, y: 250 },
-        { x: 400, y: 450 }
-    ]; 
+    create() {
+        this.map_setting();
 
-    this.goAroundPath = [
-        {x: 0, y: 100},
-        {x: 500, y: 200},
-        {x: 0, y: 100},
-        {x: 500, y: 200}
-    ];
-
-    this.spiralPath = [
-        { x: 650, y: 0 },
-        { x: 550, y: 100 },
-        { x: 450, y: 200 },
-        { x: 350, y: 300 },
-        { x: 250, y: 400 }
-    ];
-    
-    this.vZigzagPath = [
-        { x: 100, y: 0 },
-        { x: 200, y: 80 },
-        { x: 100, y: 160 },
-        { x: 200, y: 240 },
-        { x: 100, y: 320 }
-    ];
-    
-    this.swoopPath = [
-        { x: 400, y: 0 },
-        { x: 300, y: 100 },
-        { x: 500, y: 200 },
-        { x: 300, y: 300 },
-        { x: 400, y: 400 }
-    ];
-
-    this.lDownPath = [
-        { x: 0, y: 100 },
-        { x: 0, y: 300 },
-        { x: 200, y: 300 }
-    ];
-    
-    this.canBeHit = true;
-  }
-
-  preload() {
-      this.load.setPath("./assets/");
-      this.load.atlasXML("SpaceInvader", "Sprite/Spritesheet/sheet.png", "Sprite/Spritesheet/sheet.xml");
-      this.load.image("heart","Sprite/PNG/UI/playerLife1_blue.png");
-      this.load.image("spaceBG","Sprite/Backgrounds/darkPurple.png");
-      this.load.audio('bgm', 'Audio/bgm.mp3');
-      this.load.audio('shooting','Audio/laser_shooting.wav');
-      this.load.audio('explode', 'Audio/explosionCrunch_000.ogg');
-
-  }
-
-  create() {
-    
-        //Background
-        this.bg = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'spaceBG')
-        .setOrigin(0, 0)
-        .setScrollFactor(0);
-    
-        //Timer for end_scene
-        this.startTime = this.time.now;
-
-        //audio
         this.background_music();
 
-        //player
-        this.player_setting();
+        //Create coins from Objects layer in tilemap
+        this.coins = this.map.createFromObjects("Objects", {
+            name: "coin",
+            key: "tilemap_sheet",
+            frame: 151
+        });
 
-        //UI
-        this.ui_setting();
+        this.coins.forEach(coin => {
+            coin.anims.play('coinSpin');
+        });
 
-        // PHYSICS GROUPS
-        this.bulletGroup = this.physics.add.group();
-        this.enemyGroup = this.physics.add.group();
-        this.enemyBulletGroup = this.physics.add.group();
+        this.physics.world.enable(this.coins, Phaser.Physics.Arcade.STATIC_BODY);
 
-        this.resetGameState();
+        this.coinGroup = this.add.group(this.coins);
 
-        //enemies mechanics
-        this.startLevel(this.level);
-    
-        //collision
-        this.collision_everything();
-  }
+        /* Find water tiles
+        this.waterTiles = this.groundLayer.filterTiles(tile => {
+            return tile.properties.water == true;
+        });
 
-  update() {
-      let my = this.my;
+        // TODO: put water bubble particle effect here
+        this.waterEmitter = this.add.particles(0,0,'kenny-particles', {
+            frame: 'smoke_03.png',
+            lifespan: { min: 1000, max: 2000 },
+            speedY: { min: -30, max: -60 },
+            scale: { start: 0.2, end: 0 },
+            alpha: { start: 0.8, end: 0 },
+            frequency: 600
+        });
 
-      this.bg.tilePositionY -= 1;  // Adjust speed as desired
+        this.waterTiles.forEach(tile => {
+            this.waterEmitter.emitParticleAt(tile.getCenterX(), tile.getCenterY());
+        }); */
 
-      // PLAYER MOVEMENT
-      if (this.keys.left.isDown) {
-          my.sprite.player.x -= 5;
-      } else if (this.keys.right.isDown) {
-          my.sprite.player.x += 5;
-      }
 
-      this.shoot_mechanics();
+        // set up player avatar
+        my.sprite.player = this.physics.add.sprite(20, 0, "platformer_characters", "tile_0000.png");
+        my.sprite.player.setCollideWorldBounds(true);
 
-      //if enemies are cleared, go to next level
-      if (this.my.enemies.length > 0) {
-        this.my.enemies = this.my.enemies.filter(e => e.active);
-        if (this.my.enemies.length === 0) {
-            this.level++;
-            if (this.level <= 5) {
-                this.startLevel(this.level);
-            } else {
-                this.goToEndScene();
+        // Enable collision handling
+        this.physics.add.collider(my.sprite.player, this.groundLayer);
+
+        my.vfx.walking = this.add.particles(0, 0, "kenny-particles", {
+            frame: ['smoke_03.png', 'smoke_09.png'],
+            random: true,
+            scale: {start: 0.03, end: 0.05},
+            lifespan: 350,
+            alpha: {start: 1, end: 0.1}, 
+        });
+
+        // Coin collision handler
+        this.physics.add.overlap(my.sprite.player, this.coinGroup, (player, coin) => {
+            coin.destroy();
+            this.collect = this.sound.add('collect',{volume: 0.2});
+            this.collect.play();
+            this.coinEmitter = this.add.particles(0,0,'kenny-particles', {
+            frame: ['star_06.png', 'star_07.png'],
+            scale: 0.1,
+            speed: { min: 20, max: 60 },
+            active: false,
+            lifespan: 600,
+            alpha: {start: 1, end: 0.1}
+        });
+
+            this.coinEmitter.explode(6, coin.x, coin.y);
+            this.time.delayedCall(500, () => this.coinEmitter.destroy(), [], this);
+
+            // Update score
+            this.score += 100;
+            this.scoreText.setText('Score: ' + this.score);
+        });
+
+        // Simple camera to follow player
+        this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+        this.cameras.main.startFollow(my.sprite.player, true, 0.25, 0.25);
+        this.cameras.main.setDeadzone(50, 50);
+        this.cameras.main.setZoom(this.SCALE);
+        
+        // Add score UI at top-right after camera and world setup
+        this.scoreText = this.add.text(this.scale.width - 500 , this.scale.height - 680, 'Score: ' + this.score, {
+            fontSize: '20px', fill: '#ffffff',
+            stroke: '#000000', strokeThickness: 4
+        }).setOrigin(1, 0); 
+        this.scoreText.setScrollFactor(0).setDepth(100); 
+
+        this.key_bind();
+    }
+
+    update() {
+        this.scoreText.setPosition(this.scale.width - 520 , this.scale.height - 730); 
+
+        
+        if(this.keys.left.isDown) {
+            my.sprite.player.setAccelerationX(-this.ACCELERATION);
+            my.sprite.player.resetFlip();
+            my.sprite.player.anims.play('walk', true);
+            my.vfx.walking.startFollow(my.sprite.player, my.sprite.player.displayWidth/2-10, my.sprite.player.displayHeight/2-5, false);
+
+            my.vfx.walking.setParticleSpeed(this.PARTICLE_VELOCITY, 0);
+            if (my.sprite.player.body.blocked.down) {
+                my.vfx.walking.start();
             }
+
+        } else if(this.keys.right.isDown) {
+            my.sprite.player.setAccelerationX(this.ACCELERATION);
+            my.sprite.player.setFlip(true, false);
+            my.sprite.player.anims.play('walk', true);
+            my.vfx.walking.startFollow(my.sprite.player, my.sprite.player.displayWidth/2-10, my.sprite.player.displayHeight/2-5, false);
+
+            my.vfx.walking.setParticleSpeed(this.PARTICLE_VELOCITY, 0);
+            if (my.sprite.player.body.blocked.down) {
+                my.vfx.walking.start();
+            }
+
+        } else {
+            // Set acceleration to 0 and have DRAG take over
+            my.sprite.player.setAccelerationX(0);
+            my.sprite.player.setDragX(this.DRAG);
+            my.sprite.player.anims.play('idle');
+            my.vfx.walking.stop();
+        }
+
+
+
+
+        if(this.keys.restart.isDown) {
+            this.scene.restart();
+        }
+
+
+        this.flag_mechanics();
+        this.double_jump_mechanics();
+
+    }
+
+    flag_mechanics()
+    {
+        const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
+        const playerTileY = this.groundLayer.worldToTileY(my.sprite.player.y + my.sprite.player.height / 2); // bottom of player
+
+        const tile = this.decorationLayer.getTileAt(playerTileX, playerTileY);
+
+        if (tile && tile.properties.isFlag && !this.levelCompleted) {
+            this.levelCompleted = true;
+            this.scene.start("EndScene");
         }
     }
-  }
 
-    // PLAYER TAKES DAMAGE
-    playerHit() {
-    if (!this.canBeHit) return;
+    double_jump_mechanics()
+    {
+        // player jump
+        if(!my.sprite.player.body.blocked.down) {
+            my.sprite.player.anims.play('jump');
+        }
+        let isOnGround = my.sprite.player.body.blocked.down;
 
-    this.canBeHit = false;
-    this.currentHearts--;
-    this.updateHealthDisplay();
+        // Reset jump count only when landing
+        if (isOnGround && !this.wasOnGround) {
+            this.jumpCount = 0;
+        }
 
-      // Start blinking effect
-      this.tweens.add({
-        targets: this.my.sprite.player,
-        alpha: 0,
-        ease: 'Linear',
-        duration: 100,
-        yoyo: true,
-        repeat: 5
-    });
+        // Handle jump input
+        if (Phaser.Input.Keyboard.JustDown(this.keys.up) && this.jumpCount < this.maxJumps) {
+            if (this.jumpCount === 0) {
+                my.sprite.player.setVelocityY(this.JUMP_VELOCITY);
+                
+            } else {
+                my.sprite.player.setVelocityY(this.JUMP_VELOCITY * 0.8);
+            }
+            this.jump = this.sound.add('jump',{volume: 0.2});
+            this.jump.play();
+            this.jumpCount++;
+        }
 
-    if (this.currentHearts <= 0) {
-        this.goToEndScene();
-    } else {
-        // Wait 1 second before allowing another hit
-        this.time.delayedCall(1000, () => {
-            this.canBeHit = true;
+        this.wasOnGround = isOnGround;
+
+
+    }
+
+    key_bind()
+    {
+        // set up Phaser-provided cursor key input
+        this.keys = this.input.keyboard.addKeys({
+        left: Phaser.Input.Keyboard.KeyCodes.A,
+        right: Phaser.Input.Keyboard.KeyCodes.D,
+        up: Phaser.Input.Keyboard.KeyCodes.W,
+        down: Phaser.Input.Keyboard.KeyCodes.S,
+        restart: Phaser.Input.Keyboard.KeyCodes.R
         });
     }
-  }
 
-    // UPDATE HEART DISPLAY
-    updateHealthDisplay() {
-      for (let i = 0; i < this.maxHearts; i++) {
-          this.my.hearts[i].setVisible(i < this.currentHearts);
-      }
-  }
+    map_setting()
+    {
+        this.map = this.add.tilemap("level1");
 
-    // ADD TO SCORE
-    addScore(points) {
-      this.score += points;
-      this.my.text.score.setText(`Score: ${this.score}`);
-  }
+        // Add a tileset to the map
+        this.tileset = this.map.addTilesetImage("Pixel_Platformer", "tiles");
+        this.bgTileset = this.map.addTilesetImage("tilemap-backgrounds_packed", "backgrounds");
 
-    //random spawn enemy
-    spawnEnemy(path, duration = 999999, delay = 0) {
-        this.time.delayedCall(delay, ()=> {        
-            const frames = ["enemyBlack1.png", "enemyGreen4.png", "enemyRed2.png", "enemyBlue3.png"];
-            const frame = Phaser.Utils.Array.GetRandom(frames);
-    
-            let curve = new Phaser.Curves.Spline(path);
-    
-            let enemy = this.add.follower(curve, path[0].x, path[0].y, 'SpaceInvader', frame);
-            enemy.setScale(0.5);
-            this.physics.add.existing(enemy);
-            this.enemyGroup.add(enemy);
-    
-            enemy.startFollow({
-                duration: duration,
-                repeat: -1,
-                rotateToPath: true,
-                rotationOffset: -90,
-                yoyo: true,
-            });
-    
-            this.my.enemies.push(enemy);
+        // Create a layer
+        this.backgroundLayer = this.map.createLayer("Background", this.bgTileset);
 
-        });
+        this.groundLayer = this.map.createLayer("Ground", this.tileset);
 
-  }
+        this.decorationLayer = this.map.createLayer("Decoration", this.tileset);
 
-    //background music
-    background_music() {
+        this.pBackgroundLayer = this.map.createLayer("P_Background", this.tileset);
+        
+        this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+
+        this.groundLayer.setCollisionByProperty({ collides: true });
+
+    }
+
+    background_music(){
     this.bgm = this.sound.add('bgm', {
         loop: true,
         volume: 0.5
     });
     this.bgm.play();
-}
-
-    //shoot mechanics
-    shoot_mechanics() {
-    let my = this.my;
-
-      // SHOOT
-      if (Phaser.Input.Keyboard.JustDown(this.keys.shoot)) {
-        this.shoot = this.sound.add('shooting',{volume: 0.2});
-        this.shoot.play();
-        const bullet = this.bulletGroup.create(my.sprite.player.x, my.sprite.player.y - 20, "SpaceInvader", "fire01.png");
-        bullet.setFlipY(true);
-        bullet.setAngle(180);
-        bullet.setScale(0.5);
-        bullet.body.velocity.y = -200;
-        this.my.bullets.push(bullet);
     }
-
-      // BULLET MOVEMENT & CLEANUP
-      for (let i = my.bullets.length - 1; i >= 0; i--) {
-          my.bullets[i].y -= 5;
-          if (my.bullets[i].y < 0) {
-              my.bullets[i].destroy();
-              my.bullets.splice(i, 1);
-          }
-      }
-
-      this.enemyBulletGroup.children.each(bullet => {
-        if (bullet.y > this.scale.height) {
-            bullet.destroy();
-        }
-    }, this);
-    
-}
-
-    //UI for main game
-    ui_setting() {
-
-        let my = this.my;
-
-        //Clear existing hearts if any
-        my.hearts.forEach(heart => heart.destroy());
-        my.hearts = [];
-
-        this.maxHearts = 4;
-        this.currentHearts = 4;
-        for (let i = 0; i < this.maxHearts; i++) {
-            let heart = this.add.sprite(this.scale.width - 30 - i * 35, 20, "heart")
-                .setScale(0.8)
-                .setOrigin(0.5, 0);
-            my.hearts.push(heart);
-        }
-
-        // SCORE SETUP
-        this.score = 0;
-        my.text.score = this.add.text(this.scale.width - 30, 60, `Score: ${this.score}`, {
-            fontSize: "18px",
-            fill: "#ffffff"
-        }).setOrigin(1, 0);
-
-        //LEVEL UI
-        this.level = 1;
-        this.levelText = this.add.text(this.scale.width / 2, this.scale.height / 2, '', {
-            fontSize: '32px',
-            fill: '#ffffff'
-        }).setOrigin(0.5);
-    }
-
-    //collision for the bullet & player & enemies
-    collision_everything() {
-
-        let my = this.my;
-        // COLLISION: player with enemies
-        this.physics.add.overlap(this.enemyGroup, my.sprite.player, () => {
-            this.playerHit();
-        });
-
-        //COLLISION: player get hit by enemies
-        this.physics.add.overlap(this.enemyBulletGroup, this.my.sprite.player, () => {
-        this.playerHit();
-    });
-    
-        // COLLISION: bullets hit enemies
-        this.physics.add.overlap(this.bulletGroup, this.enemyGroup, (bullet, enemy) => {
-            bullet.destroy();
-            enemy.destroy();
-            this.addScore(100);
-            this.sound.play('explode', { volume: 0.3 });
-        });
-    }
-
-    //player configuration
-    player_setting(){
-        let my = this.my;
-
-        my.sprite.player = this.physics.add.sprite(this.bodyX, this.bodyY, 'SpaceInvader', 'playerShip1_blue.png');
-        my.sprite.player.setScale(0.5);
-        my.sprite.player.setCollideWorldBounds(true);
-
-        // INPUT 
-        this.keys = this.input.keyboard.addKeys({
-            left: 'A',
-            right: 'D',
-            shoot: 'SPACE'
-        });
-    }
-
-    //Level 1-5
-    startLevel(level) {
-        this.levelText.setText(`Level ${level}`);
-        this.time.delayedCall(2000, () => {
-            this.levelText.setText('');
-  
-            this.my.enemies.forEach(e => e.destroy());
-            this.my.enemies = [];
-  
-            for (let i = 0; i < 5 + level * 3; i++) {
-                const path = Phaser.Utils.Array.GetRandom([
-                    this.zigzagPath, this.divePath, this.goAroundPath, this.spiralPath, this.vZigzagPath, this.lDownPath, this.swoopPath
-
-                ]);
-                this.spawnEnemy(path, 4000 + Math.random() * 2000, i * 700);
-            }
-  
-            if (!this.enemyShootTimer) {
-                this.enemyShootTimer = this.time.addEvent({
-                    delay: 2000,
-                    loop: true,
-                    callback: () => {
-                        this.my.enemies.forEach(enemy => {
-                            if (enemy.active && enemy.y < this.scale.height) {
-                                const bullet = this.enemyBulletGroup.create(enemy.x, enemy.y + 10, "SpaceInvader", "fire02.png");
-                                bullet.setFlipY(false);
-                                bullet.setAngle(180);
-                                bullet.setScale(0.5);
-                                bullet.body.velocity.y = 150;
-                            }
-                        });
-                    }
-                });
-            }
-        });
-    }
-
-    //credit + end scene
-    goToEndScene() {
-        const totalTime = this.time.now - this.startTime;
-        this.scene.start("end_scene", {
-            score: this.score,
-            time: totalTime
-        });
-
-        if (this.bgm && this.bgm.isPlaying) {
-            this.bgm.stop();
-        }
-    }
-
-    //reset every to make sure game works properly
-    resetGameState() {
-        this.level = 1;
-        this.score = 0;
-        this.startTime = 0;
-        this.canBeHit = true;
-    
-        this.my.enemies = [];
-        this.my.bullets = [];
-    
-        if (this.enemyShootTimer) {
-            this.enemyShootTimer.remove();
-            this.enemyShootTimer = null;
-        }
-    
-        // Optional: clear all active bullets/enemies from previous game
-        this.enemyGroup.clear(true, true);
-        this.bulletGroup.clear(true, true);
-        this.enemyBulletGroup.clear(true, true);
-    }
-    
 }
