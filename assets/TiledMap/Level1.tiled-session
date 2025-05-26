@@ -6,7 +6,7 @@
     "fileStates": {
         "": {
             "scaleInDock": 2,
-            "scaleInEditor": 1
+            "scaleInEditor": 3
         },
         "#tilemap-backgrounds_packed": {
             "scaleInEditor": 1
@@ -27,11 +27,11 @@
             "expandedObjectLayers": [
                 4
             ],
-            "scale": 1.5,
-            "selectedLayer": 1,
+            "scale": 2,
+            "selectedLayer": 2,
             "viewCenter": {
-                "x": 518.6666666666667,
-                "y": 311.66666666666663
+                "x": 2897,
+                "y": 252.25
             }
         },
         "level1.tmx#Pixel_Platformer": {
@@ -52,8 +52,8 @@
     "project": "Level1.tiled-project",
     "property.type": "bool",
     "recentFiles": [
-        "C:/Users/hoben/OneDrive/Documents/GitHub/CMPM-120-UCSC/ParticlePractice/assets/platformer-level-1.tmx",
-        "level1.tmx"
+        "level1.tmx",
+        "C:/Users/hoben/OneDrive/Documents/GitHub/CMPM-120-UCSC/ParticlePractice/assets/platformer-level-1.tmx"
     ],
     "tileset.embedInMap": true,
     "tileset.tileSize": {

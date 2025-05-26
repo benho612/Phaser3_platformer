@@ -5,10 +5,10 @@ class game_scene extends Phaser.Scene {
 
     init() {
         // variables and settings
-        this.ACCELERATION = 250;
-        this.DRAG = 500;    // DRAG < ACCELERATION = icy slide
+        this.ACCELERATION = 600;     // Faster start
+        this.DRAG = 1200;            // Less sliding
         this.physics.world.gravity.y = 1500;
-        this.JUMP_VELOCITY = -500;
+        this.JUMP_VELOCITY = -400;
         this.PARTICLE_VELOCITY = 50;
         this.SCALE = 2.0;
 
@@ -18,6 +18,8 @@ class game_scene extends Phaser.Scene {
 
         this.score = 0;
         this.levelCompleted = false;
+        this.levelFailed - false;
+        this.isPaused = false;
     }
 
     create() {
@@ -40,29 +42,26 @@ class game_scene extends Phaser.Scene {
 
         this.coinGroup = this.add.group(this.coins);
 
-        /* Find water tiles
         this.waterTiles = this.groundLayer.filterTiles(tile => {
             return tile.properties.water == true;
         });
 
-        // TODO: put water bubble particle effect here
-        this.waterEmitter = this.add.particles(0,0,'kenny-particles', {
+        this.waterTiles.forEach(tile => {
+            this.waterEmitter = this.add.particles(tile.getCenterX(),tile.getCenterY(),'kenny-particles', {
             frame: 'smoke_03.png',
             lifespan: { min: 1000, max: 2000 },
             speedY: { min: -30, max: -60 },
-            scale: { start: 0.2, end: 0 },
-            alpha: { start: 0.8, end: 0 },
-            frequency: 600
+            scale: { start: 0.1, end: 0 },
+            alpha: { start: 0.5, end: 0 },
+            frequency: 100
+            })
         });
-
-        this.waterTiles.forEach(tile => {
-            this.waterEmitter.emitParticleAt(tile.getCenterX(), tile.getCenterY());
-        }); */
 
 
         // set up player avatar
         my.sprite.player = this.physics.add.sprite(20, 0, "platformer_characters", "tile_0000.png");
         my.sprite.player.setCollideWorldBounds(true);
+        my.sprite.player.setMaxVelocity(200, 600); // tight, capped control
 
         // Enable collision handling
         this.physics.add.collider(my.sprite.player, this.groundLayer);
@@ -89,34 +88,69 @@ class game_scene extends Phaser.Scene {
             alpha: {start: 1, end: 0.1}
         });
 
+            this.score += 100;
             this.coinEmitter.explode(6, coin.x, coin.y);
             this.time.delayedCall(500, () => this.coinEmitter.destroy(), [], this);
-
-            // Update score
-            this.score += 100;
-            this.scoreText.setText('Score: ' + this.score);
         });
 
         // Simple camera to follow player
         this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
         this.cameras.main.startFollow(my.sprite.player, true, 0.25, 0.25);
         this.cameras.main.setDeadzone(50, 50);
-        this.cameras.main.setZoom(this.SCALE);
+        this.cameras.main.setZoom(2);//this.SCALE
         
-        // Add score UI at top-right after camera and world setup
-        this.scoreText = this.add.text(this.scale.width - 500 , this.scale.height - 680, 'Score: ' + this.score, {
-            fontSize: '20px', fill: '#ffffff',
-            stroke: '#000000', strokeThickness: 4
-        }).setOrigin(1, 0); 
-        this.scoreText.setScrollFactor(0).setDepth(100); 
-
         this.key_bind();
     }
 
     update() {
-        this.scoreText.setPosition(this.scale.width - 520 , this.scale.height - 730); 
 
-        
+        // Get player's bottom center tile coordinates
+        const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
+        const playerTileY = this.groundLayer.worldToTileY(my.sprite.player.y + my.sprite.player.height / 2);
+
+        // Check the tile at that position
+        const currentTile = this.groundLayer.getTileAt(playerTileX, playerTileY);
+
+        // Determine if player is in water
+        const inWater = currentTile && currentTile.properties.water;
+
+        if (inWater) {
+            // Apply underwater physics
+            this.physics.world.gravity.y = 400;
+            my.sprite.player.setDragX(800);
+            my.sprite.player.setMaxVelocity(100, 250);
+            my.sprite.player.setTint(0x80d0ff);  // Optional: visual cue
+        } else {
+            // Normal physics
+            this.physics.world.gravity.y = 1500;
+            my.sprite.player.setDragX(this.DRAG);
+            my.sprite.player.setMaxVelocity(200, 600);
+            my.sprite.player.clearTint();
+        }
+
+        // Check if the player is on a ladder tile
+        const ladderTile = this.groundLayer.getTileAtWorldXY(
+            my.sprite.player.x,
+            my.sprite.player.y + my.sprite.player.height / 2
+        );
+
+        const onLadder = ladderTile && ladderTile.properties.ladder;
+
+        if (onLadder && this.keys.up.isDown) {
+            // Climbing behavior
+            this.physics.world.gravity.y = 0;
+            my.sprite.player.setVelocityY(-100);   // Climb speed
+            my.sprite.player.setDragX(800);
+            my.sprite.player.setAccelerationX(0);  // Prevent horizontal drifting
+            my.sprite.player.setMaxVelocity(150, 150);
+            my.sprite.player.setTint(0xffddaa);    // Optional visual cue
+        } else if (!onLadder) {
+            // Restore normal physicsd
+            this.physics.world.gravity.y = 1500;
+            my.sprite.player.clearTint();
+        }
+
+
         if(this.keys.left.isDown) {
             my.sprite.player.setAccelerationX(-this.ACCELERATION);
             my.sprite.player.resetFlip();
@@ -147,30 +181,33 @@ class game_scene extends Phaser.Scene {
             my.vfx.walking.stop();
         }
 
-
-
-
-        if(this.keys.restart.isDown) {
-            this.scene.restart();
-        }
-
-
-        this.flag_mechanics();
+        this.win_lose_mechanics();
         this.double_jump_mechanics();
 
     }
 
-    flag_mechanics()
+    win_lose_mechanics()
     {
         const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
         const playerTileY = this.groundLayer.worldToTileY(my.sprite.player.y + my.sprite.player.height / 2); // bottom of player
 
         const tile = this.decorationLayer.getTileAt(playerTileX, playerTileY);
 
+        const deathTile = this.groundLayer.getTileAt(playerTileX,playerTileY);
+
+
         if (tile && tile.properties.isFlag && !this.levelCompleted) {
             this.levelCompleted = true;
-            this.scene.start("EndScene");
+            this.scene.start("end_scene", { result: "completed", score: this.score });
+            this.bgm.stop();
         }
+
+        if(deathTile && deathTile.properties.isDie &&!this.levelCompleted){
+            this.levelFailed = true;
+            this.scene.start("end_scene", { result: "failed", score: this.score });
+            this.bgm.stop();
+        }
+
     }
 
     double_jump_mechanics()
@@ -212,7 +249,6 @@ class game_scene extends Phaser.Scene {
         right: Phaser.Input.Keyboard.KeyCodes.D,
         up: Phaser.Input.Keyboard.KeyCodes.W,
         down: Phaser.Input.Keyboard.KeyCodes.S,
-        restart: Phaser.Input.Keyboard.KeyCodes.R
         });
     }
 
@@ -226,13 +262,17 @@ class game_scene extends Phaser.Scene {
 
         // Create a layer
         this.backgroundLayer = this.map.createLayer("Background", this.bgTileset);
+        //this.backgroundLayer.setScale(this.SCALE);
 
         this.groundLayer = this.map.createLayer("Ground", this.tileset);
+        //this.groundLayer.setScale(this.SCALE);
 
         this.decorationLayer = this.map.createLayer("Decoration", this.tileset);
+        //this.decorationLayer.setScale(this.SCALE);
 
         this.pBackgroundLayer = this.map.createLayer("P_Background", this.tileset);
-        
+        //this.pBackgroundLayer.setScale(this.SCALE);
+
         this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
 
         this.groundLayer.setCollisionByProperty({ collides: true });
@@ -246,4 +286,7 @@ class game_scene extends Phaser.Scene {
     });
     this.bgm.play();
     }
+
+
+
 }

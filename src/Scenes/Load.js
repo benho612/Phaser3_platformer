@@ -31,6 +31,16 @@ class Load extends Phaser.Scene {
         this.load.audio('jump', 'sounds/jump.wav');
 
         this.load.audio('collect','sounds/coin.wav');
+
+        const font = new FontFace('PixelFont', 'url(./assets/fonts/PixelOperator8-Bold.ttf)');
+
+        font.load().then((loadedFace) => {
+            document.fonts.add(loadedFace);
+            console.log('Font loaded!');
+            this.fontLoaded = true;
+        }).catch((err) => {
+            console.error('Font load error:', err);
+        });
     }
 
     create() {
@@ -77,7 +87,7 @@ class Load extends Phaser.Scene {
         });
 
         // Start the next scene
-        this.scene.start("game_scene");
+        this.scene.start("start_scene");
     }
 
     update() {}
