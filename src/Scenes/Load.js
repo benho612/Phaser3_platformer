@@ -41,6 +41,7 @@ class Load extends Phaser.Scene {
         }).catch((err) => {
             console.error('Font load error:', err);
         });
+
     }
 
     create() {
@@ -75,7 +76,7 @@ class Load extends Phaser.Scene {
             ],
         });
 
-
+        //coin
         this.anims.create({
             key: 'coinSpin',
             frames: this.anims.generateFrameNumbers('tilemap_sheet', {

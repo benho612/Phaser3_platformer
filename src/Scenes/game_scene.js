@@ -20,6 +20,17 @@ class game_scene extends Phaser.Scene {
         this.levelCompleted = false;
         this.levelFailed - false;
         this.isPaused = false;
+
+        this.npcDialogLines = [
+            "Hello traveler!",
+            "Nice day, isn't it?",
+            "Be careful ahead!",
+            "That's all I know."
+        ];
+        this.npcDialogIndex = 0;
+        this.inNpcZone = false;
+        this.inDialogue = false;
+
     }
 
     create() {
@@ -33,37 +44,38 @@ class game_scene extends Phaser.Scene {
             key: "tilemap_sheet",
             frame: 151
         });
-
         this.coins.forEach(coin => {
             coin.anims.play('coinSpin');
         });
-
         this.physics.world.enable(this.coins, Phaser.Physics.Arcade.STATIC_BODY);
-
         this.coinGroup = this.add.group(this.coins);
 
-        this.waterTiles = this.groundLayer.filterTiles(tile => {
-            return tile.properties.water == true;
-        });
+        this.water_tile_sfx();
 
-        this.waterTiles.forEach(tile => {
-            this.waterEmitter = this.add.particles(tile.getCenterX(),tile.getCenterY(),'kenny-particles', {
-            frame: 'smoke_03.png',
-            lifespan: { min: 1000, max: 2000 },
-            speedY: { min: -30, max: -60 },
-            scale: { start: 0.1, end: 0 },
-            alpha: { start: 0.5, end: 0 },
-            frequency: 100
-            })
-        });
+        //set npc 
+        my.sprite.npc = this.physics.add.sprite(350, 0, 'platformer_characters', 'tile_0009.png');
+        this.physics.add.collider(my.sprite.npc, this.groundLayer);
 
+        this.npcText = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, 'Press E to talk', {
+            fontFamily: 'PixelFont',
+            fontSize: '10px',
+            color: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+
+        this.npcTextBox = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, '', {
+            fontFamily: 'PixelFont',
+            fontSize: '10px',
+            fill: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setOrigin(0.5).setVisible(false);
 
         // set up player avatar
         my.sprite.player = this.physics.add.sprite(20, 0, "platformer_characters", "tile_0000.png");
         my.sprite.player.setCollideWorldBounds(true);
         my.sprite.player.setMaxVelocity(200, 600); // tight, capped control
-
-        // Enable collision handling
         this.physics.add.collider(my.sprite.player, this.groundLayer);
 
         my.vfx.walking = this.add.particles(0, 0, "kenny-particles", {
@@ -93,16 +105,31 @@ class game_scene extends Phaser.Scene {
             this.time.delayedCall(500, () => this.coinEmitter.destroy(), [], this);
         });
 
-        // Simple camera to follow player
-        this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
-        this.cameras.main.startFollow(my.sprite.player, true, 0.25, 0.25);
-        this.cameras.main.setDeadzone(50, 50);
-        this.cameras.main.setZoom(2);//this.SCALE
-        
+        // Overlap detection
+        this.physics.add.overlap(my.sprite.player, my.sprite.npc, () => {
+            this.inNpcZone = true;
+        }, null, this);
+
+        this.camera();
+
         this.key_bind();
     }
 
     update() {
+
+        this.show_interact_npc();
+
+        if (this.inNpcZone && Phaser.Input.Keyboard.JustDown(this.keys.E)) 
+        {
+            this.inDialogue = true;
+            this.showNpcMessage(this.npcDialogLines[this.npcDialogIndex]);
+            this.npcDialogIndex++;
+            if (this.npcDialogIndex > this.npcDialogLines.length)
+            {
+                this.npcDialogIndex = 0;
+                this.inDialogue = false;
+            }
+        } 
 
         // Get player's bottom center tile coordinates
         const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
@@ -135,7 +162,6 @@ class game_scene extends Phaser.Scene {
         );
 
         const onLadder = ladderTile && ladderTile.properties.ladder;
-
         if (onLadder && this.keys.up.isDown) {
             // Climbing behavior
             this.physics.world.gravity.y = 0;
@@ -149,7 +175,6 @@ class game_scene extends Phaser.Scene {
             this.physics.world.gravity.y = 1500;
             my.sprite.player.clearTint();
         }
-
 
         if(this.keys.left.isDown) {
             my.sprite.player.setAccelerationX(-this.ACCELERATION);
@@ -249,7 +274,9 @@ class game_scene extends Phaser.Scene {
         right: Phaser.Input.Keyboard.KeyCodes.D,
         up: Phaser.Input.Keyboard.KeyCodes.W,
         down: Phaser.Input.Keyboard.KeyCodes.S,
+        E: Phaser.Input.Keyboard.KeyCodes.E
         });
+
     }
 
     map_setting()
@@ -287,6 +314,51 @@ class game_scene extends Phaser.Scene {
     this.bgm.play();
     }
 
+    water_tile_sfx(){
+        this.waterTiles = this.groundLayer.filterTiles(tile => {
+            return tile.properties.water == true;
+        });
 
+        this.waterTiles.forEach(tile => {
+            this.waterEmitter = this.add.particles(tile.getCenterX(),tile.getCenterY(),'kenny-particles', {
+            frame: 'smoke_03.png',
+            lifespan: { min: 1000, max: 2000 },
+            speedY: { min: -30, max: -60 },
+            scale: { start: 0.1, end: 0 },
+            alpha: { start: 0.5, end: 0 },
+            frequency: 100
+            })
+        });
+    }
+
+    camera(){
+        // Simple camera to follow player
+        this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+        this.cameras.main.startFollow(my.sprite.player, true, 0.25, 0.25);
+        this.cameras.main.setDeadzone(50, 50);
+        this.cameras.main.setZoom(2);//this.SCALE
+    }
+
+    showNpcMessage(message) {
+        this.npcTextBox.setText(message);
+        this.npcTextBox.setPosition(my.sprite.npc.x, my.sprite.npc.y - 40);
+        this.npcTextBox.setVisible(true);
+    }
+
+    show_interact_npc(){
+        //Npc Overlap
+        if (!this.physics.overlap(my.sprite.player, my.sprite.npc)) 
+            this.inNpcZone = false;
+        else
+            this.inNpcZone = true;
+
+        this.npcText.setPosition(my.sprite.npc.x, my.sprite.npc.y - 40);
+
+        if (this.inNpcZone && !this.inDialogue)
+            this.npcText.setVisible(true);
+        else
+            this.npcText.setVisible(false);
+        
+    }
 
 }
