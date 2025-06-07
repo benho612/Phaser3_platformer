@@ -110,13 +110,22 @@ class game_scene extends Phaser.Scene {
             this.inNpcZone = true;
         }, null, this);
 
+        this.scoreBox = this.add.text(my.sprite.player.x, my.sprite.player.y - 40, this.score, {
+            fontFamily: 'PixelFont',
+            fontSize: '10px',
+            fill: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+
         this.camera();
 
         this.key_bind();
     }
 
     update() {
-
+        this.scoreBox.setText(this.score);
+        this.scoreBox.setPosition(my.sprite.player.x, my.sprite.player.y + 40);
         this.show_interact_npc();
 
         if (this.inNpcZone && Phaser.Input.Keyboard.JustDown(this.keys.E)) 
