@@ -28,10 +28,10 @@
                 4
             ],
             "scale": 2,
-            "selectedLayer": 2,
+            "selectedLayer": 4,
             "viewCenter": {
-                "x": 2897,
-                "y": 252.25
+                "x": 567.5,
+                "y": 79.25
             }
         },
         "level1.tmx#Pixel_Platformer": {

@@ -152,7 +152,6 @@
         {
          "draworder":"topdown",
          "id":4,
-         "locked":true,
          "name":"Objects",
          "objects":[
                 {
@@ -298,6 +297,30 @@
                  "width":18,
                  "x":2304,
                  "y":36
+                }, 
+                {
+                 "gid":68,
+                 "height":18,
+                 "id":28,
+                 "name":"diamond",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":18,
+                 "x":558.5,
+                 "y":70.5
+                }, 
+                {
+                 "gid":68,
+                 "height":18,
+                 "id":29,
+                 "name":"diamond",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":18,
+                 "x":126.5,
+                 "y":253
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -306,7 +329,7 @@
          "y":0
         }],
  "nextlayerid":7,
- "nextobjectid":27,
+ "nextobjectid":30,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.11.2",

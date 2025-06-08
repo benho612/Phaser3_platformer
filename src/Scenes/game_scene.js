@@ -19,7 +19,12 @@ class game_scene extends Phaser.Scene {
         this.score = 0;
         this.levelCompleted = false;
         this.levelFailed = false;
+
+        this.howToPlayGroup = null;
+        this.pauseMenuGroup = null;
         this.isPaused = false;
+
+        this.inventory = [];
 
         this.npcDialogLines = [
             "Hello traveler!",
@@ -38,6 +43,8 @@ class game_scene extends Phaser.Scene {
 
         this.background_music();
 
+        this.collect = this.sound.add('collect',{volume: 0.2});
+
         //Create coins from Objects layer in tilemap
         this.coins = this.map.createFromObjects("Objects", {
             name: "coin",
@@ -50,11 +57,66 @@ class game_scene extends Phaser.Scene {
         this.physics.world.enable(this.coins, Phaser.Physics.Arcade.STATIC_BODY);
         this.coinGroup = this.add.group(this.coins);
 
+        //Create Diamond
+        this.diamond = this.map.createFromObjects("Objects", {
+            name: "diamond",
+            key: "tilemap_sheet",
+            frame: 67
+        })
+        this.physics.world.enable(this.diamond, Phaser.Physics.Arcade.STATIC_BODY);
+        this.diamondGroup = this.add.group(this.diamond);
+
+        //water sfx
         this.water_tile_sfx();
 
         //set npc 
         my.sprite.npc = this.physics.add.sprite(350, 0, 'platformer_characters', 'tile_0009.png');
         this.physics.add.collider(my.sprite.npc, this.groundLayer);
+
+        // set up player avatar
+        my.sprite.player = this.physics.add.sprite(20, 0, "platformer_characters", "tile_0000.png");
+        my.sprite.player.setCollideWorldBounds(true);
+        my.sprite.player.setMaxVelocity(200, 600);
+        this.physics.add.collider(my.sprite.player, this.groundLayer);
+
+        my.vfx.walking = this.add.particles(0, 0, "kenny-particles", {
+            frame: ['smoke_03.png', 'smoke_09.png'],
+            random: true,
+            scale: {start: 0.03, end: 0.05},
+            lifespan: 350,
+            alpha: {start: 1, end: 0.1}, 
+        });
+
+        // Coin collision handler
+        this.physics.add.overlap(my.sprite.player, this.coinGroup, (player, coin) => {
+            coin.destroy();
+            this.collect.play();
+            this.coinEmitter = this.add.particles(0,0,'kenny-particles', {
+            frame: ['star_06.png', 'star_07.png'],
+            scale: 0.1,
+            speed: { min: 20, max: 60 },
+            active: false,
+            lifespan: 600,
+            alpha: {start: 1, end: 0.1}
+        });
+
+            this.score += 100;
+            this.coinEmitter.explode(6, coin.x, coin.y);
+            this.time.delayedCall(500, () => this.coinEmitter.destroy(), [], this);
+        });
+
+        //Diamond Collision handler
+        this.physics.add.overlap(my.sprite.player, this.diamondGroup, (player, diamond) => {
+            this.inventory.push(diamond.name);
+            diamond.destroy();
+            this.collect.play();
+            this.updateInventoryUI();
+        }, null, this);
+
+        // Overlap detection
+        this.physics.add.overlap(my.sprite.player, my.sprite.npc, () => {
+            this.inNpcZone = true;
+        }, null, this);
 
         this.npcText = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, 'Press E to talk', {
             fontFamily: 'PixelFont',
@@ -72,44 +134,6 @@ class game_scene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5).setVisible(false);
 
-        // set up player avatar
-        my.sprite.player = this.physics.add.sprite(20, 0, "platformer_characters", "tile_0000.png");
-        my.sprite.player.setCollideWorldBounds(true);
-        my.sprite.player.setMaxVelocity(200, 600); // tight, capped control
-        this.physics.add.collider(my.sprite.player, this.groundLayer);
-
-        my.vfx.walking = this.add.particles(0, 0, "kenny-particles", {
-            frame: ['smoke_03.png', 'smoke_09.png'],
-            random: true,
-            scale: {start: 0.03, end: 0.05},
-            lifespan: 350,
-            alpha: {start: 1, end: 0.1}, 
-        });
-
-        // Coin collision handler
-        this.physics.add.overlap(my.sprite.player, this.coinGroup, (player, coin) => {
-            coin.destroy();
-            this.collect = this.sound.add('collect',{volume: 0.2});
-            this.collect.play();
-            this.coinEmitter = this.add.particles(0,0,'kenny-particles', {
-            frame: ['star_06.png', 'star_07.png'],
-            scale: 0.1,
-            speed: { min: 20, max: 60 },
-            active: false,
-            lifespan: 600,
-            alpha: {start: 1, end: 0.1}
-        });
-
-            this.score += 100;
-            this.coinEmitter.explode(6, coin.x, coin.y);
-            this.time.delayedCall(500, () => this.coinEmitter.destroy(), [], this);
-        });
-
-        // Overlap detection
-        this.physics.add.overlap(my.sprite.player, my.sprite.npc, () => {
-            this.inNpcZone = true;
-        }, null, this);
-
         this.scoreBox = this.add.text(my.sprite.player.x, my.sprite.player.y - 40, this.score, {
             fontFamily: 'PixelFont',
             fontSize: '10px',
@@ -118,12 +142,42 @@ class game_scene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5);
 
+        this.inventoryText = this.add.text(10, 10, 'Inventory: ', {
+            fontFamily: 'PixelFont',
+            fontSize: '16px',
+            fill: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setScrollFactor(0).setDepth(100);
+
         this.camera();
 
         this.key_bind();
+
+        this.createPauseMenu();
+
+        this.createHowToPlayPanel();
+
+        this.uiCamera.ignore(this.children.list.filter(obj =>
+            !this.pauseMenuGroup.contains(obj) &&
+            !this.howToPlayGroup.contains(obj) &&
+            obj !== this.inventoryText
+        ));
+
     }
 
     update() {
+        if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
+            if (this.isPaused) 
+                this.resumeGame();
+            else 
+                this.pauseGame();
+        }
+        if (this.isPaused) return; // Freeze update loop
+
+        if(this.coinEmitter)
+            this.uiCamera.ignore(this.coinEmitter);
+        
         this.scoreBox.setText(this.score);
         this.scoreBox.setPosition(my.sprite.player.x, my.sprite.player.y + 40);
         this.show_interact_npc();
@@ -283,7 +337,8 @@ class game_scene extends Phaser.Scene {
         right: Phaser.Input.Keyboard.KeyCodes.D,
         up: Phaser.Input.Keyboard.KeyCodes.W,
         down: Phaser.Input.Keyboard.KeyCodes.S,
-        E: Phaser.Input.Keyboard.KeyCodes.E
+        E: Phaser.Input.Keyboard.KeyCodes.E,
+        ESC: Phaser.Input.Keyboard.KeyCodes.ESC
         });
 
     }
@@ -315,13 +370,18 @@ class game_scene extends Phaser.Scene {
 
     }
 
-    background_music(){
-    this.bgm = this.sound.add('bgm', {
-        loop: true,
-        volume: 0.5
-    });
-    this.bgm.play();
+    background_music() {
+    if (!this.sound.get('bgm')) {
+        this.bgm = this.sound.add('bgm', {
+            loop: true,
+            volume: 0.5
+        });
+        this.bgm.play();
+    } else {
+        this.bgm = this.sound.get('bgm');
     }
+}
+
 
     water_tile_sfx(){
         this.waterTiles = this.groundLayer.filterTiles(tile => {
@@ -345,7 +405,13 @@ class game_scene extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
         this.cameras.main.startFollow(my.sprite.player, true, 0.25, 0.25);
         this.cameras.main.setDeadzone(50, 50);
-        this.cameras.main.setZoom(2);//this.SCALE
+        this.cameras.main.setZoom(this.SCALE);
+
+        this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
+        this.uiCamera.setScroll(0, 0);
+        this.uiCamera.setZoom(1);
+        this.uiCamera.ignore(this.children.list.filter(obj => obj !== this.inventoryText));
+        this.cameras.main.ignore(this.inventoryText);
     }
 
     showNpcMessage(message) {
@@ -369,5 +435,131 @@ class game_scene extends Phaser.Scene {
             this.npcText.setVisible(false);
         
     }
+
+    updateInventoryUI(){
+        this.inventoryText.setText('Inventory: ' + this.inventory.join(', '));    
+    }
+
+    createPauseMenu() {
+        this.pauseMenuGroup = this.add.group();
+
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
+
+        const bg = this.add.rectangle(centerX, centerY, 200, 210, 0x000000, 0.7).setOrigin(0.5);
+        const textStyle = {
+            fontFamily: 'PixelFont',
+            fontSize: '16px',
+            fill: '#ffffff'
+        };
+
+        this.returnBtn = this.add.text(centerX, centerY - 70, 'Return', textStyle).setOrigin(0.5).setInteractive();
+        this.restartBtn = this.add.text(centerX, centerY - 40, 'How to play', textStyle).setOrigin(0.5).setInteractive();
+        this.quitBtn = this.add.text(centerX, centerY - 10, 'Quit', textStyle).setOrigin(0.5).setInteractive();
+
+        this.returnBtn.on("pointerover", () => this.returnBtn.setStyle({ fill: "#ffff00" }));
+        this.returnBtn.on("pointerout", () => this.returnBtn.setStyle({ fill: "#ffffff" }));
+
+        this.restartBtn.on("pointerover", () => this.restartBtn.setStyle({ fill: "#ffff00" }));
+        this.restartBtn.on("pointerout", () => this.restartBtn.setStyle({ fill: "#ffffff" }));
+
+        this.quitBtn.on("pointerover", () => this.quitBtn.setStyle({ fill: "#ffff00" }));
+        this.quitBtn.on("pointerout", () => this.quitBtn.setStyle({ fill: "#ffffff" }));
+
+        this.returnBtn.on('pointerdown', () => this.resumeGame());
+        this.restartBtn.on('pointerdown', () => this.howToPlayGroup.setVisible(true));
+        this.quitBtn.on('pointerdown', () => this.scene.start('start_scene'));
+
+        // Volume label
+        const volumeLabel = this.add.text(centerX, centerY + 50, 'Volume:', textStyle).setOrigin(0.5);
+
+        // Slider bar
+        const sliderWidth = 100;
+        const sliderBar = this.add.rectangle(centerX, centerY + 70, sliderWidth, 10, 0xaaaaaa).setOrigin(0.5);
+
+        // Slider handle
+        const sliderHandle = this.add.rectangle(centerX, centerY + 70, 10, 20, 0xffffff).setOrigin(0.5).setInteractive({ draggable: true });
+
+        this.input.setDraggable(sliderHandle);
+
+ 
+        sliderHandle.on('drag', (pointer, dragX) => {
+            const minX = centerX - sliderWidth / 2;
+            const maxX = centerX + sliderWidth / 2;
+            dragX = Phaser.Math.Clamp(dragX, minX, maxX);
+            sliderHandle.x = dragX;
+
+            // Convert position to volume (0.0 - 1.0)
+            const volume = (sliderHandle.x - minX) / sliderWidth;
+            this.sound.volume = volume;
+        });
+
+        this.pauseMenuGroup.addMultiple([bg, this.returnBtn, volumeLabel, sliderBar, sliderHandle, this.restartBtn, this.quitBtn]);
+        this.pauseMenuGroup.setVisible(false);
+
+        this.cameras.main.ignore(this.pauseMenuGroup.getChildren());
+    }
+
+    createHowToPlayPanel() {
+        this.howToPlayGroup = this.add.group();
+
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
+
+        const panelBg = this.add.rectangle(centerX, centerY, 300, 220, 0x000000, 0.85).setOrigin(0.5);
+        const instructions = [
+            'Controls:',
+            'A : Move Left',
+            ' D : Move Right',
+            'W : Jump',
+            'E : Interact',
+            'ESC : Pause Game'
+        ];
+
+        const textStyle = {
+            fontFamily: 'PixelFont',
+            fontSize: '14px',
+            fill: '#ffffff',
+            align: 'center'
+        };
+
+        const lineSpacing = 24;
+        instructions.forEach((line, i) => {
+            const lineText = this.add.text(centerX, centerY - 90 + i * lineSpacing, line, textStyle).setOrigin(0.5);
+            this.howToPlayGroup.add(lineText);
+        });
+
+        const closeBtn = this.add.text(centerX, centerY + 70, 'Close', {
+            fontFamily: 'PixelFont',
+            fontSize: '16px',
+            fill: '#ffffff',
+            backgroundColor: '#444444',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5).setInteractive();
+
+        closeBtn.on('pointerdown', () => {
+            this.howToPlayGroup.setVisible(false);
+        });
+
+        this.howToPlayGroup.addMultiple([panelBg, closeBtn]);
+        this.howToPlayGroup.setVisible(false);
+
+        this.cameras.main.ignore(this.howToPlayGroup.getChildren());
+    }
+
+    pauseGame() {
+        this.isPaused = true;
+        this.physics.world.pause();
+        this.pauseMenuGroup.setVisible(true);
+        this.sound.pauseAll();
+    }
+
+    resumeGame() {
+        this.isPaused = false;
+        this.physics.world.resume();
+        this.pauseMenuGroup.setVisible(false);
+        this.sound.resumeAll();
+    }
+
 
 }
