@@ -18,7 +18,7 @@ class game_scene extends Phaser.Scene {
 
         this.score = 0;
         this.levelCompleted = false;
-        this.levelFailed - false;
+        this.levelFailed = false;
         this.isPaused = false;
 
         this.npcDialogLines = [

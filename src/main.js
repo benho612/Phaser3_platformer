@@ -25,7 +25,7 @@ let config = {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [Load,start_scene, game_scene, end_scene]
+    scene: [Load, start_scene, game_scene, end_scene]
 }
 
 

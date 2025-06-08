@@ -3,10 +3,6 @@ class start_scene extends Phaser.Scene {
         super("start_scene"); 
     }
 
-    preload() {
-        this.load.setPath("./assets/");
-    }
-
     create() {
         this.centerX = this.scale.width / 2;
         this.centerY = this.scale.height / 2;
