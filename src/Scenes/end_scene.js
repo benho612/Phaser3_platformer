@@ -7,6 +7,7 @@ class end_scene extends Phaser.Scene {
     {
         this.result = data.result || "failed";
         this.finalScore = data.score || 0;
+        this.inventory = data.inventory || [];
     }
     create() {
         let resultText = "Game Over";
@@ -28,7 +29,11 @@ class end_scene extends Phaser.Scene {
                 }).setOrigin(0.5).setInteractive();
 
                 level2Button.on("pointerdown", () => {
-                    this.scene.start("game_scene", { level: "level2" });
+                    console.log("Passing inventory to Level 2:", this.inventory);
+                    this.scene.start("game_scene", {
+                        level: "level2",
+                        inventory: this.inventory
+                    });
                 });
             }
         } else if (this.result === "failed") {

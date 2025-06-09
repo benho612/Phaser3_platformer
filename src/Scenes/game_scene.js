@@ -13,6 +13,7 @@ class game_scene extends Phaser.Scene {
         this.SCALE = 2.0;
 
         this.levelName = data?.level || "level1";
+        this.inventory = data?.inventory || [];
 
         this.wasOnGround = false;
         this.jumpCount = 0;
@@ -25,8 +26,6 @@ class game_scene extends Phaser.Scene {
         this.howToPlayGroup = null;
         this.pauseMenuGroup = null;
         this.isPaused = false;
-
-        this.inventory = [];
 
         this.npcDialogLines = [
             "Hello traveler!",
@@ -41,6 +40,12 @@ class game_scene extends Phaser.Scene {
     }
 
     create() {
+
+        // Press e to show inventory
+        this.inventoryVisible = false;
+        this.toggleKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+
         this.map_setting();
 
         this.background_music();
@@ -144,13 +149,16 @@ class game_scene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5);
 
-        this.inventoryText = this.add.text(10, 10, 'Inventory: ', {
+        this.inventoryText = this.add.text(550, 300, 'Inventory: ', {
             fontFamily: 'PixelFont',
-            fontSize: '16px',
+            fontSize: '32px',
             fill: '#ffffff',
             stroke: '#000',
+            align: "center",
             strokeThickness: 3
-        }).setScrollFactor(0).setDepth(100);
+        }).setScrollFactor(0).setDepth(100).setVisible(false);
+
+        this.updateInventoryUI();
 
         this.camera();
 
@@ -169,6 +177,19 @@ class game_scene extends Phaser.Scene {
     }
 
     update() {
+        if (Phaser.Input.Keyboard.JustDown(this.toggleKey)) {
+            this.inventoryVisible = !this.inventoryVisible;
+        
+            if (this.inventoryVisible) {
+                this.physics.world.pause();
+                this.inventoryText.setVisible(true);
+            } else {
+                this.physics.world.resume();
+                this.inventoryText.setVisible(false);
+            }
+        }
+
+        
         if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
             if (this.isPaused) 
                 this.resumeGame();
@@ -283,12 +304,16 @@ class game_scene extends Phaser.Scene {
 
         const tile = this.decorationLayer.getTileAt(playerTileX, playerTileY);
 
-        const deathTile = this.groundLayer.getTileAt(playerTileX,playerTileY);
+        const deathTile = this.decorationLayer.getTileAt(playerTileX,playerTileY);
 
 
         if (tile && tile.properties.isFlag && !this.levelCompleted) {
             this.levelCompleted = true;
-            this.scene.start("end_scene", { result: "completed", score: this.score });
+            this.scene.start("end_scene", {
+                result: "completed",
+                score: this.score,
+                inventory: this.inventory  // pass it forward
+            });
             this.bgm.stop();
         }
 
@@ -439,7 +464,7 @@ class game_scene extends Phaser.Scene {
     }
 
     updateInventoryUI(){
-        this.inventoryText.setText('Inventory: ' + this.inventory.join(', '));    
+        this.inventoryText.setText('Inventory: ' + this.inventory.join('\n'));    
     }
 
     createPauseMenu() {
