@@ -29,7 +29,7 @@ class start_scene extends Phaser.Scene {
         this.startButton.on("pointerover", () => this.startButton.setStyle({ fill: "#ffff00" }));
         this.startButton.on("pointerout", () => this.startButton.setStyle({ fill: "#ffffff" }));
         this.startButton.on("pointerdown", () => {
-            this.scene.start("game_scene");
+            this.scene.start("game_scene", { level: "level1" });
         });
 
         // Optional instructions

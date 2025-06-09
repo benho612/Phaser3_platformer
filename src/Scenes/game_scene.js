@@ -3,7 +3,7 @@ class game_scene extends Phaser.Scene {
         super("game_scene");
     }
 
-    init() {
+    init(data) {
         // variables and settings
         this.ACCELERATION = 600;     // Faster start
         this.DRAG = 1200;            // Less sliding
@@ -11,6 +11,8 @@ class game_scene extends Phaser.Scene {
         this.JUMP_VELOCITY = -400;
         this.PARTICLE_VELOCITY = 50;
         this.SCALE = 2.0;
+
+        this.levelName = data?.level || "level1";
 
         this.wasOnGround = false;
         this.jumpCount = 0;
@@ -345,7 +347,7 @@ class game_scene extends Phaser.Scene {
 
     map_setting()
     {
-        this.map = this.add.tilemap("level1");
+        this.map = this.add.tilemap(this.levelName);
 
         // Add a tileset to the map
         this.tileset = this.map.addTilesetImage("Pixel_Platformer", "tiles");

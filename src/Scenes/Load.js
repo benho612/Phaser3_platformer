@@ -8,6 +8,7 @@ class Load extends Phaser.Scene {
 
         // Load the main level tilemap (TMX format from Tiled)
         this.load.tilemapTiledJSON("level1", "level1.tmj");
+        this.load.tilemapTiledJSON("level2", "level2.tmj");
 
         // Load the tileset images used in Tiled
         this.load.image("tiles", "tilemap_packed.png");                        // for "Pixel_Platformer"
