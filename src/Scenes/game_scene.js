@@ -120,9 +120,12 @@ class game_scene extends Phaser.Scene {
             if (this.inventoryVisible) {
                 this.physics.world.pause();
                 this.inventoryText.setVisible(true);
+                this.inventoryBg.setVisible(true);
             } else {
                 this.physics.world.resume();
                 this.inventoryText.setVisible(false);
+                this.inventoryBg.setVisible(false);
+
             }
             this.updateInventoryUI();
         }
@@ -182,18 +185,24 @@ class game_scene extends Phaser.Scene {
 
         const onLadder = ladderTile && ladderTile.properties.ladder;
         if (onLadder && this.keys.up.isDown) {
-            // Climbing behavior
             this.physics.world.gravity.y = 0;
-            my.sprite.player.setVelocityY(-100);   // Climb speed
+            my.sprite.player.setVelocityY(-100);
             my.sprite.player.setDragX(800);
-            my.sprite.player.setAccelerationX(0);  // Prevent horizontal drifting
+            my.sprite.player.setAccelerationX(0);
             my.sprite.player.setMaxVelocity(150, 150);
-            my.sprite.player.setTint(0xffddaa);    // Optional visual cue
-        } else if (!onLadder) {
-            // Restore normal physicsd
+            my.sprite.player.setTint(0xffddaa);
+
+            if (!this.ladderSound.isPlaying) {
+                this.ladderSound.play();
+            }
+        } else {
+            if (this.ladderSound.isPlaying) {
+                this.ladderSound.stop();
+            }
             this.physics.world.gravity.y = 1500;
             my.sprite.player.clearTint();
         }
+
 
         if(this.keys.left.isDown) {
             my.sprite.player.setAccelerationX(-this.ACCELERATION);
@@ -230,32 +239,48 @@ class game_scene extends Phaser.Scene {
 
     }
 
-    win_lose_mechanics()
-    {
+    win_lose_mechanics() {
         const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
-        const playerTileY = this.groundLayer.worldToTileY(my.sprite.player.y + my.sprite.player.height / 2); // bottom of player
+        const playerTileY = this.groundLayer.worldToTileY(my.sprite.player.y + my.sprite.player.height / 2);
 
         const tile = this.decorationLayer.getTileAt(playerTileX, playerTileY);
+        const deathTile = this.groundLayer.getTileAt(playerTileX, playerTileY);
 
-        const deathTile = this.decorationLayer.getTileAt(playerTileX,playerTileY);
-
-
+        // Win condition
         if (tile && tile.properties.isFlag && !this.levelCompleted) {
             this.levelCompleted = true;
             this.scene.start("end_scene", {
                 result: "completed",
                 score: this.score,
-                inventory: this.inventory  // pass it forward
+                inventory: this.inventory
             });
             this.bgm.stop();
         }
 
-        if(deathTile && deathTile.properties.isDie &&!this.levelCompleted){
+        // Death condition with animation and sound
+        if (deathTile && deathTile.properties.isDie && !this.levelFailed && !this.levelCompleted) {
             this.levelFailed = true;
-            this.scene.start("end_scene", { result: "failed", score: this.score });
-            this.bgm.stop();
-        }
 
+            // Stop background music
+            this.bgm.stop();
+
+            // Play hurt sound
+            this.hurt.play();
+
+            my.sprite.player.setVelocity(0);
+            my.sprite.player.body.enable = false;
+            
+            // Rotate player sprite
+            this.tweens.add({
+                targets: my.sprite.player,
+                angle: 360,
+                duration: 1000,
+                ease: 'Cubic.easeInOut',
+                onComplete: () => {
+                    this.scene.start("end_scene", { result: "failed", score: this.score });
+                }
+            });
+        }
     }
 
     double_jump_mechanics()
@@ -377,7 +402,7 @@ class game_scene extends Phaser.Scene {
         this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
         this.uiCamera.setScroll(0, 0);
         this.uiCamera.setZoom(1);
-        this.uiCamera.ignore(this.children.list.filter(obj => obj !== this.inventoryText));
+        this.uiCamera.ignore(this.children.list.filter(obj => obj !== this.inventoryText && obj !== this.inventoryBg));        
         this.cameras.main.ignore(this.inventoryText);
     }
 
@@ -393,23 +418,22 @@ class game_scene extends Phaser.Scene {
     }
 
     show_interact_npc() {
-    let anyNpcInZone = false;
+        let anyNpcInZone = false;
 
-    this.npcGroup.getChildren().forEach(npc => {
-        const isOverlapping = this.physics.overlap(my.sprite.player, npc);
-        this.inNpcZone[npc.name] = isOverlapping;
+        this.npcGroup.getChildren().forEach(npc => {
+            const isOverlapping = this.physics.overlap(my.sprite.player, npc);
+            this.inNpcZone[npc.name] = isOverlapping;
 
-        if (isOverlapping && !this.inDialogue) {
-            this.npcText.setText('Press E to talk');
-            this.npcText.setPosition(npc.x, npc.y - 40);
-            this.npcText.setVisible(true);
-            anyNpcInZone = true;
-        }
-    });
+            if (isOverlapping && !this.inDialogue) {
+                this.npcText.setText('Press E to talk');
+                this.npcText.setPosition(npc.x, npc.y - 40);
+                this.npcText.setVisible(true);
+                anyNpcInZone = true;
+            }
+        });
 
-    if (!anyNpcInZone || this.inDialogue) {
-        this.npcText.setVisible(false);
-    }
+        if (!anyNpcInZone || this.inDialogue) 
+            this.npcText.setVisible(false);
     }
 
     updateInventoryUI() {
@@ -420,6 +444,8 @@ class game_scene extends Phaser.Scene {
         if (!this.inventoryVisible) {
             return;
         }
+
+        this.inventoryBg.setPosition(this.scale.width / 2, this.scale.height / 2);
 
         this.inventoryText.setText('Inventory: '); 
         const diamondCount = this.inventory.filter(item => item === 'diamond').length;
@@ -445,7 +471,6 @@ class game_scene extends Phaser.Scene {
         }
     }
     
-
     createPauseMenu() {
         this.pauseMenuGroup = this.add.group();
 
@@ -526,7 +551,8 @@ class game_scene extends Phaser.Scene {
             ' D : Move Right',
             'W : Jump',
             'E : Interact',
-            'ESC : Pause Game'
+            'ESC : Pause Game',
+            'I : Inventory'
         ];
 
         const textStyle = {
@@ -599,7 +625,7 @@ class game_scene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5);
 
-        this.inventoryText = this.add.text(550, 300, 'Inventory: ', {
+        this.inventoryText = this.add.text(670, 320, 'Inventory: ', {
             fontFamily: 'PixelFont',
             fontSize: '32px',
             fill: '#ffffff',
@@ -607,6 +633,12 @@ class game_scene extends Phaser.Scene {
             align: "center",
             strokeThickness: 3
         }).setScrollFactor(0).setDepth(100).setVisible(false);
+
+        this.inventoryBg = this.add.rectangle(0, 0, 300, 150, 0x000000, 0.8)
+            .setScrollFactor(0)
+            .setDepth(99)
+            .setVisible(false);
+
     }
 
     object_creation(){
@@ -633,15 +665,23 @@ class game_scene extends Phaser.Scene {
     }
 
     npc_creation(){
-        //set npc 
         this.npcGroup = this.add.group();
 
-        const npcData = [
-            { x: 350, y: 0, key: 'npc1', dialog: ["Hey!", "Bring me Diamonds.",""],skin: "tile_0009.png", requiresItem: "diamond"},
-            { x: 540, y: 0, key: 'npc2', dialog: ["Hello!", "Jump carefully.",""], skin: "tile_0006.png" }
-        ];
+        // Different NPCs for each level
+        const npcDataByLevel = {
+            level1: [
+                { x: 350, y: 0, key: 'npc1', dialog: ["Hey!", "Bring me Diamonds.",""], skin: "tile_0009.png", requiresItem: "diamond"},
+                { x: 540, y: 0, key: 'npc2', dialog: ["Hello!", "Jump carefully.",""], skin: "tile_0006.png" },
+                { x: 2315, y: 0, key: 'npc3', dialog: ["Woah", "You shouldn't be here.","This is too dangerous!",""], skin: "tile_0004.png" }
+            ],
+            level2: [
+                { x: 150, y: 0, key: 'npc4', dialog: ["Woah", "Just Saying our level designer","Make this map more spike, so watch out",""], skin: "tile_0004.png" }
+            ]
+        };
 
-        this.npcDialogMap = {};  // Stores dialogues per NPC
+        const npcData = npcDataByLevel[this.levelName] || [];
+
+        this.npcDialogMap = {};
         this.npcItemGiven = {};
         this.inNpcZone = {};
 
@@ -657,44 +697,37 @@ class game_scene extends Phaser.Scene {
             this.inNpcZone[npcInfo.key] = false;
             this.npcDialogMap[npcInfo.key] = { lines: npcInfo.dialog, index: 0 };
             this.npcItemGiven[npcInfo.key] = false;
-            // Bind interaction with 'E' key inside the update loop or interaction handler
+
             npc.interact = () => {
                 const scene = this;
                 const key = npc.name;
                 const requiresItem = npc.requiresItem;
             
                 scene.inDialogue = true;
-            
-                // Handle item giving if needed
+
                 if (requiresItem && !scene.npcItemGiven[key]) {
                     const itemIndex = scene.inventory.indexOf(requiresItem);
                     if (itemIndex !== -1) {
-                        // Player has the item, give it
                         scene.inventory.splice(itemIndex, 1);
                         scene.npcItemGiven[key] = true;
-            
                         npc.setFrame("tile_0007.png");
                         scene.showNpcMessage(`${key}: Thanks for the ${requiresItem}!`, npc);
-                        scene.sound.play("Dialogue");
+                        this.sound.play("Dialogue");
                         scene.updateInventoryUI();
                         return;
                     } else {
-                        // Player doesn't have the item
                         scene.showNpcMessage(`${key}: Bring me a ${requiresItem}.`, npc);
-                        scene.sound.play("Dialogue");
+                        this.sound.play("Dialogue");
                         return;
                     }
                 }
-            
-                // Normal dialogue
+
                 const dialogState = scene.npcDialogMap[key];
                 const currentLine = dialogState.lines[dialogState.index] || `${key}: Hello.`;
                 scene.showNpcMessage(currentLine, npc);
-                scene.sound.play("Dialogue");
-            
+                this.sound.play("Dialogue");
+
                 dialogState.index++;
-            
-                // When finished cycling through dialogue, close it and allow interaction again
                 if (dialogState.index >= dialogState.lines.length) {
                     dialogState.index = 0;
                     scene.inDialogue = false;
@@ -704,8 +737,12 @@ class game_scene extends Phaser.Scene {
         });
     }
 
+
     sfx(){
         this.collect = this.sound.add('collect',{volume: 0.2});
-        this.Dialogue = this.sound.add('Dialogue',{volume: 0.2});
+        this.Dialogue = this.sound.add('Dialogue',{volume: 0.05});
+        this.ladderSound = this.sound.add('ladder', { volume: 0.5, loop: true });
+        this.hurt = this.sound.add('hurt',{volume: 0.2});
+
     }
 }
