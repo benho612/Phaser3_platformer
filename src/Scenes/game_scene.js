@@ -712,12 +712,12 @@ class game_scene extends Phaser.Scene {
                         scene.npcItemGiven[key] = true;
                         npc.setFrame("tile_0007.png");
                         scene.showNpcMessage(`${key}: Thanks for the ${requiresItem}!`, npc);
-                        scene.sound.play("Dialogue");
+                        this.sound.play("Dialogue");
                         scene.updateInventoryUI();
                         return;
                     } else {
                         scene.showNpcMessage(`${key}: Bring me a ${requiresItem}.`, npc);
-                        scene.sound.play("Dialogue");
+                        this.sound.play("Dialogue");
                         return;
                     }
                 }
@@ -725,7 +725,7 @@ class game_scene extends Phaser.Scene {
                 const dialogState = scene.npcDialogMap[key];
                 const currentLine = dialogState.lines[dialogState.index] || `${key}: Hello.`;
                 scene.showNpcMessage(currentLine, npc);
-                scene.sound.play("Dialogue");
+                this.sound.play("Dialogue");
 
                 dialogState.index++;
                 if (dialogState.index >= dialogState.lines.length) {

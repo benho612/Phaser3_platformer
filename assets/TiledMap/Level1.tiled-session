@@ -1,5 +1,5 @@
 {
-    "activeFile": "",
+    "activeFile": "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj",
     "expandedProjectPaths": [
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
@@ -23,15 +23,29 @@
             "scaleInDock": 1,
             "scaleInEditor": 1
         },
+        "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj": {
+            "scale": 1,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 2480,
+                "y": 198.5
+            }
+        },
+        "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj#Pixel_Platformer": {
+            "scaleInDock": 1.5
+        },
+        "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj#tilemap-backgrounds_packed": {
+            "scaleInDock": 1
+        },
         "level1.tmx": {
             "expandedObjectLayers": [
                 4
             ],
-            "scale": 2,
+            "scale": 1,
             "selectedLayer": 4,
             "viewCenter": {
-                "x": 567.5,
-                "y": 79.25
+                "x": 580,
+                "y": 261.5
             }
         },
         "level1.tmx#Pixel_Platformer": {
@@ -47,12 +61,14 @@
     "last.imagePath": "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets",
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
     "openFiles": [
-        "level1.tmx"
+        "level1.tmx",
+        "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj"
     ],
     "project": "Level1.tiled-project",
     "property.type": "bool",
     "recentFiles": [
         "level1.tmx",
+        "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj",
         "C:/Users/hoben/OneDrive/Documents/GitHub/CMPM-120-UCSC/ParticlePractice/assets/platformer-level-1.tmx"
     ],
     "tileset.embedInMap": true,
