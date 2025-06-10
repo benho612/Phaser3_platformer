@@ -44,6 +44,8 @@ class game_scene extends Phaser.Scene {
 
         this.object_creation();
         this.npc_creation();
+        this.inventoryIcons = [];
+        this.inventoryVisible = false;
 
 
 
@@ -115,7 +117,6 @@ class game_scene extends Phaser.Scene {
     update() {
         if (Phaser.Input.Keyboard.JustDown(this.keys.toggleKey)) {
             this.inventoryVisible = !this.inventoryVisible;
-        
             if (this.inventoryVisible) {
                 this.physics.world.pause();
                 this.inventoryText.setVisible(true);
@@ -123,6 +124,7 @@ class game_scene extends Phaser.Scene {
                 this.physics.world.resume();
                 this.inventoryText.setVisible(false);
             }
+            this.updateInventoryUI();
         }
 
         if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
@@ -143,14 +145,7 @@ class game_scene extends Phaser.Scene {
         if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
             this.npcGroup.getChildren().forEach(npc => {
                 if (this.inNpcZone[npc.name]) {
-                    const dialog = this.npcDialogMap[npc.name];
-                    this.inDialogue = true;
-                    this.showNpcMessage(dialog.lines[dialog.index], npc);
-                    dialog.index++;
-                    if (dialog.index >= dialog.lines.length) {
-                        dialog.index = 0;
-                        this.inDialogue = false;
-                    }
+                    npc.interact();
                 }
             });
         }
@@ -352,7 +347,7 @@ class game_scene extends Phaser.Scene {
 
             // Always ensure the volume is current
             this.bgm.setVolume(savedVolume);
-        }
+    }
     }
 
     water_tile_sfx(){
@@ -398,29 +393,58 @@ class game_scene extends Phaser.Scene {
     }
 
     show_interact_npc() {
-        let anyNpcInZone = false;
+    let anyNpcInZone = false;
 
-        this.npcGroup.getChildren().forEach(npc => {
-            const isOverlapping = this.physics.overlap(my.sprite.player, npc);
-            this.inNpcZone[npc.name] = isOverlapping;
+    this.npcGroup.getChildren().forEach(npc => {
+        const isOverlapping = this.physics.overlap(my.sprite.player, npc);
+        this.inNpcZone[npc.name] = isOverlapping;
 
-            if (isOverlapping && !this.inDialogue) {
-                this.npcText.setText('Press E to talk');
-                this.npcText.setPosition(npc.x, npc.y - 40);
-                this.npcText.setVisible(true);
-                anyNpcInZone = true;
+        if (isOverlapping && !this.inDialogue) {
+            this.npcText.setText('Press E to talk');
+            this.npcText.setPosition(npc.x, npc.y - 40);
+            this.npcText.setVisible(true);
+            anyNpcInZone = true;
+        }
+    });
+
+    if (!anyNpcInZone || this.inDialogue) {
+        this.npcText.setVisible(false);
+    }
+    }
+
+    updateInventoryUI() {
+        // Always clear the old icons/text first
+        this.inventoryIcons.forEach(icon => icon.destroy());
+        this.inventoryIcons = [];
+    
+        if (!this.inventoryVisible) {
+            return;
+        }
+
+        this.inventoryText.setText('Inventory: '); 
+        const diamondCount = this.inventory.filter(item => item === 'diamond').length;
+    
+        if (diamondCount > 0) {
+            // Show diamond icon
+            const icon = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, 'diamond_icon');
+            icon.setScale(4);
+            icon.setScrollFactor(2);
+            this.inventoryIcons.push(icon);
+    
+            // Show count if more than 1
+            if (diamondCount >= 1) {
+                const countText = this.add.text(icon.x + 50, icon.y + 50, `x${diamondCount}`, {
+                    fontSize: '32px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 4
+                });
+                countText.setScrollFactor(2);
+                this.inventoryIcons.push(countText);
             }
-        });
-
-        // Hide text if no NPC is near or we're in dialogue
-        if (!anyNpcInZone || this.inDialogue) {
-            this.npcText.setVisible(false);
         }
     }
-
-    updateInventoryUI(){
-        this.inventoryText.setText('Inventory: ' + this.inventory.join('\n'));    
-    }
+    
 
     createPauseMenu() {
         this.pauseMenuGroup = this.add.group();
@@ -613,22 +637,70 @@ class game_scene extends Phaser.Scene {
         this.npcGroup = this.add.group();
 
         const npcData = [
-            { x: 350, y: 0, key: 'npc1', dialog: ["Hey!", "Bring me Diamonds.",""],skin: "tile_0009.png" },
+            { x: 350, y: 0, key: 'npc1', dialog: ["Hey!", "Bring me Diamonds.",""],skin: "tile_0009.png", requiresItem: "diamond"},
             { x: 540, y: 0, key: 'npc2', dialog: ["Hello!", "Jump carefully.",""], skin: "tile_0006.png" }
         ];
 
         this.npcDialogMap = {};  // Stores dialogues per NPC
+        this.npcItemGiven = {};
+        this.inNpcZone = {};
 
         npcData.forEach(npcInfo => {
             const npc = this.physics.add.sprite(npcInfo.x, npcInfo.y, 'platformer_characters', npcInfo.skin);
             npc.setCollideWorldBounds(true);
             npc.name = npcInfo.key;
+            npc.requiresItem = npcInfo.requiresItem || null;
 
             this.physics.add.collider(npc, this.groundLayer);
             this.npcGroup.add(npc);
 
             this.inNpcZone[npcInfo.key] = false;
             this.npcDialogMap[npcInfo.key] = { lines: npcInfo.dialog, index: 0 };
+            this.npcItemGiven[npcInfo.key] = false;
+            // Bind interaction with 'E' key inside the update loop or interaction handler
+            npc.interact = () => {
+                const scene = this;
+                const key = npc.name;
+                const requiresItem = npc.requiresItem;
+            
+                scene.inDialogue = true;
+            
+                // Handle item giving if needed
+                if (requiresItem && !scene.npcItemGiven[key]) {
+                    const itemIndex = scene.inventory.indexOf(requiresItem);
+                    if (itemIndex !== -1) {
+                        // Player has the item, give it
+                        scene.inventory.splice(itemIndex, 1);
+                        scene.npcItemGiven[key] = true;
+            
+                        npc.setFrame("tile_0007.png");
+                        scene.showNpcMessage(`${key}: Thanks for the ${requiresItem}!`, npc);
+                        scene.sound.play("Dialogue");
+                        scene.updateInventoryUI();
+                        return;
+                    } else {
+                        // Player doesn't have the item
+                        scene.showNpcMessage(`${key}: Bring me a ${requiresItem}.`, npc);
+                        scene.sound.play("Dialogue");
+                        return;
+                    }
+                }
+            
+                // Normal dialogue
+                const dialogState = scene.npcDialogMap[key];
+                const currentLine = dialogState.lines[dialogState.index] || `${key}: Hello.`;
+                scene.showNpcMessage(currentLine, npc);
+                scene.sound.play("Dialogue");
+            
+                dialogState.index++;
+            
+                // When finished cycling through dialogue, close it and allow interaction again
+                if (dialogState.index >= dialogState.lines.length) {
+                    dialogState.index = 0;
+                    scene.inDialogue = false;
+                    scene.npcTextBox.setVisible(false);
+                }
+            };
         });
     }
 

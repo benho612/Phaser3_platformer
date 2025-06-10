@@ -13,6 +13,7 @@ class Load extends Phaser.Scene {
         // Load the tileset images used in Tiled
         this.load.image("tiles", "tilemap_packed.png");                        // for "Pixel_Platformer"
         this.load.image("backgrounds", "tilemap-backgrounds_packed.png");     // for "tilemap-backgrounds_packed"
+        this.load.image("diamond_icon", "diamond.png");             // for "tilemap-objects-packing"
 
         // Load character spritesheet
         this.load.atlas("platformer_characters", "tilemap-characters-packed.png", "tilemap-characters-packed.json");
