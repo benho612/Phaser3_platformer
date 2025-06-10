@@ -36,6 +36,9 @@ class Load extends Phaser.Scene {
 
         this.load.audio('Dialogue','sounds/Dialogue.wav');
         
+        this.load.audio('ladder','sounds/ladder.mp3');
+        
+        this.load.audio('hurt','sounds/hurt.wav');
         const font = new FontFace('PixelFont', 'url(./assets/fonts/PixelOperator8-Bold.ttf)');
 
         font.load().then((loadedFace) => {
