@@ -665,16 +665,23 @@ class game_scene extends Phaser.Scene {
     }
 
     npc_creation(){
-        //set npc 
         this.npcGroup = this.add.group();
 
-        const npcData = [
-            { x: 350, y: 0, key: 'npc1', dialog: ["Hey!", "Bring me Diamonds.",""],skin: "tile_0009.png", requiresItem: "diamond"},
-            { x: 540, y: 0, key: 'npc2', dialog: ["Hello!", "Jump carefully.",""], skin: "tile_0006.png" },
-            { x: 2315, y: 0, key: 'npc3', dialog: ["Woah", "You shouldn't be here.","This is too dangerous!",""], skin: "tile_0004.png" }
-        ];
+        // Different NPCs for each level
+        const npcDataByLevel = {
+            level1: [
+                { x: 350, y: 0, key: 'npc1', dialog: ["Hey!", "Bring me Diamonds.",""], skin: "tile_0009.png", requiresItem: "diamond"},
+                { x: 540, y: 0, key: 'npc2', dialog: ["Hello!", "Jump carefully.",""], skin: "tile_0006.png" },
+                { x: 2315, y: 0, key: 'npc3', dialog: ["Woah", "You shouldn't be here.","This is too dangerous!",""], skin: "tile_0004.png" }
+            ],
+            level2: [
+                { x: 150, y: 0, key: 'npc4', dialog: ["Woah", "Just Saying our level designer","Make this map more spike, so watch out",""], skin: "tile_0004.png" }
+            ]
+        };
 
-        this.npcDialogMap = {};  // Stores dialogues per NPC
+        const npcData = npcDataByLevel[this.levelName] || [];
+
+        this.npcDialogMap = {};
         this.npcItemGiven = {};
         this.inNpcZone = {};
 
@@ -690,44 +697,37 @@ class game_scene extends Phaser.Scene {
             this.inNpcZone[npcInfo.key] = false;
             this.npcDialogMap[npcInfo.key] = { lines: npcInfo.dialog, index: 0 };
             this.npcItemGiven[npcInfo.key] = false;
-            // Bind interaction with 'E' key inside the update loop or interaction handler
+
             npc.interact = () => {
                 const scene = this;
                 const key = npc.name;
                 const requiresItem = npc.requiresItem;
             
                 scene.inDialogue = true;
-            
-                // Handle item giving if needed
+
                 if (requiresItem && !scene.npcItemGiven[key]) {
                     const itemIndex = scene.inventory.indexOf(requiresItem);
                     if (itemIndex !== -1) {
-                        // Player has the item, give it
                         scene.inventory.splice(itemIndex, 1);
                         scene.npcItemGiven[key] = true;
-            
                         npc.setFrame("tile_0007.png");
                         scene.showNpcMessage(`${key}: Thanks for the ${requiresItem}!`, npc);
                         scene.sound.play("Dialogue");
                         scene.updateInventoryUI();
                         return;
                     } else {
-                        // Player doesn't have the item
                         scene.showNpcMessage(`${key}: Bring me a ${requiresItem}.`, npc);
                         scene.sound.play("Dialogue");
                         return;
                     }
                 }
-            
-                // Normal dialogue
+
                 const dialogState = scene.npcDialogMap[key];
                 const currentLine = dialogState.lines[dialogState.index] || `${key}: Hello.`;
                 scene.showNpcMessage(currentLine, npc);
                 scene.sound.play("Dialogue");
-            
+
                 dialogState.index++;
-            
-                // When finished cycling through dialogue, close it and allow interaction again
                 if (dialogState.index >= dialogState.lines.length) {
                     dialogState.index = 0;
                     scene.inDialogue = false;
@@ -737,9 +737,10 @@ class game_scene extends Phaser.Scene {
         });
     }
 
+
     sfx(){
         this.collect = this.sound.add('collect',{volume: 0.2});
-        this.Dialogue = this.sound.add('Dialogue',{volume: 0.2});
+        this.Dialogue = this.sound.add('Dialogue',{volume: 0.05});
         this.ladderSound = this.sound.add('ladder', { volume: 0.5, loop: true });
         this.hurt = this.sound.add('hurt',{volume: 0.2});
 
