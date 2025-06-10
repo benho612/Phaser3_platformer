@@ -23,6 +23,7 @@ class game_scene extends Phaser.Scene {
         this.levelCompleted = false;
         this.levelFailed = false;
 
+        this.inventoryVisible = false;
         this.howToPlayGroup = null;
         this.pauseMenuGroup = null;
         this.isPaused = false;
@@ -40,38 +41,13 @@ class game_scene extends Phaser.Scene {
     }
 
     create() {
-
-        // Press e to show inventory
-        this.inventoryVisible = false;
-        this.toggleKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-
-
         this.map_setting();
 
         this.background_music();
 
         this.collect = this.sound.add('collect',{volume: 0.2});
 
-        //Create coins from Objects layer in tilemap
-        this.coins = this.map.createFromObjects("Objects", {
-            name: "coin",
-            key: "tilemap_sheet",
-            frame: 151
-        });
-        this.coins.forEach(coin => {
-            coin.anims.play('coinSpin');
-        });
-        this.physics.world.enable(this.coins, Phaser.Physics.Arcade.STATIC_BODY);
-        this.coinGroup = this.add.group(this.coins);
-
-        //Create Diamond
-        this.diamond = this.map.createFromObjects("Objects", {
-            name: "diamond",
-            key: "tilemap_sheet",
-            frame: 67
-        })
-        this.physics.world.enable(this.diamond, Phaser.Physics.Arcade.STATIC_BODY);
-        this.diamondGroup = this.add.group(this.diamond);
+        this.object_creation();
 
         //water sfx
         this.water_tile_sfx();
@@ -125,38 +101,7 @@ class game_scene extends Phaser.Scene {
             this.inNpcZone = true;
         }, null, this);
 
-        this.npcText = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, 'Press E to talk', {
-            fontFamily: 'PixelFont',
-            fontSize: '10px',
-            color: '#ffffff',
-            stroke: '#000',
-            strokeThickness: 3
-        }).setOrigin(0.5);
-
-        this.npcTextBox = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, '', {
-            fontFamily: 'PixelFont',
-            fontSize: '10px',
-            fill: '#ffffff',
-            stroke: '#000',
-            strokeThickness: 3
-        }).setOrigin(0.5).setVisible(false);
-
-        this.scoreBox = this.add.text(my.sprite.player.x, my.sprite.player.y - 40, this.score, {
-            fontFamily: 'PixelFont',
-            fontSize: '10px',
-            fill: '#ffffff',
-            stroke: '#000',
-            strokeThickness: 3
-        }).setOrigin(0.5);
-
-        this.inventoryText = this.add.text(550, 300, 'Inventory: ', {
-            fontFamily: 'PixelFont',
-            fontSize: '32px',
-            fill: '#ffffff',
-            stroke: '#000',
-            align: "center",
-            strokeThickness: 3
-        }).setScrollFactor(0).setDepth(100).setVisible(false);
+        this.text_creation();
 
         this.updateInventoryUI();
 
@@ -177,7 +122,7 @@ class game_scene extends Phaser.Scene {
     }
 
     update() {
-        if (Phaser.Input.Keyboard.JustDown(this.toggleKey)) {
+        if (Phaser.Input.Keyboard.JustDown(this.keys.toggleKey)) {
             this.inventoryVisible = !this.inventoryVisible;
         
             if (this.inventoryVisible) {
@@ -189,7 +134,6 @@ class game_scene extends Phaser.Scene {
             }
         }
 
-        
         if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
             if (this.isPaused) 
                 this.resumeGame();
@@ -360,6 +304,7 @@ class game_scene extends Phaser.Scene {
     {
         // set up Phaser-provided cursor key input
         this.keys = this.input.keyboard.addKeys({
+        toggleKey: Phaser.Input.Keyboard.KeyCodes.I,
         left: Phaser.Input.Keyboard.KeyCodes.A,
         right: Phaser.Input.Keyboard.KeyCodes.D,
         up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -380,16 +325,12 @@ class game_scene extends Phaser.Scene {
 
         // Create a layer
         this.backgroundLayer = this.map.createLayer("Background", this.bgTileset);
-        //this.backgroundLayer.setScale(this.SCALE);
 
         this.groundLayer = this.map.createLayer("Ground", this.tileset);
-        //this.groundLayer.setScale(this.SCALE);
 
         this.decorationLayer = this.map.createLayer("Decoration", this.tileset);
-        //this.decorationLayer.setScale(this.SCALE);
 
         this.pBackgroundLayer = this.map.createLayer("P_Background", this.tileset);
-        //this.pBackgroundLayer.setScale(this.SCALE);
 
         this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
 
@@ -398,17 +339,16 @@ class game_scene extends Phaser.Scene {
     }
 
     background_music() {
-    if (!this.sound.get('bgm')) {
-        this.bgm = this.sound.add('bgm', {
-            loop: true,
-            volume: 0.5
-        });
-        this.bgm.play();
-    } else {
-        this.bgm = this.sound.get('bgm');
+        // Only create one instance of bgm globally
+        if (!this.sound.get('bgm')) {
+            const savedVolume = parseFloat(localStorage.getItem('volume') || '0.5');
+            const bgm = this.sound.add('bgm', {
+                loop: true,
+                volume: savedVolume
+            });
+            bgm.play();
+        }
     }
-}
-
 
     water_tile_sfx(){
         this.waterTiles = this.groundLayer.filterTiles(tile => {
@@ -495,7 +435,14 @@ class game_scene extends Phaser.Scene {
 
         this.returnBtn.on('pointerdown', () => this.resumeGame());
         this.restartBtn.on('pointerdown', () => this.howToPlayGroup.setVisible(true));
-        this.quitBtn.on('pointerdown', () => this.scene.start('start_scene'));
+        this.quitBtn.on('pointerdown', () => {
+        const bgm = this.sound.get('bgm');
+        if (bgm) {
+            bgm.stop();
+            bgm.destroy();
+        }
+            this.scene.start('start_scene');
+        });
 
         // Volume label
         const volumeLabel = this.add.text(centerX, centerY + 50, 'Volume:', textStyle).setOrigin(0.5);
@@ -588,5 +535,61 @@ class game_scene extends Phaser.Scene {
         this.sound.resumeAll();
     }
 
+    text_creation(){
+        this.npcText = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, 'Press E to talk', {
+            fontFamily: 'PixelFont',
+            fontSize: '10px',
+            color: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
 
+        this.npcTextBox = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, '', {
+            fontFamily: 'PixelFont',
+            fontSize: '10px',
+            fill: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setOrigin(0.5).setVisible(false);
+
+        this.scoreBox = this.add.text(my.sprite.player.x, my.sprite.player.y - 40, this.score, {
+            fontFamily: 'PixelFont',
+            fontSize: '10px',
+            fill: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+
+        this.inventoryText = this.add.text(550, 300, 'Inventory: ', {
+            fontFamily: 'PixelFont',
+            fontSize: '32px',
+            fill: '#ffffff',
+            stroke: '#000',
+            align: "center",
+            strokeThickness: 3
+        }).setScrollFactor(0).setDepth(100).setVisible(false);
+    }
+
+    object_creation(){
+        //Create coins from Objects layer in tilemap
+        this.coins = this.map.createFromObjects("Objects", {
+            name: "coin",
+            key: "tilemap_sheet",
+            frame: 151
+        });
+        this.coins.forEach(coin => {
+            coin.anims.play('coinSpin');
+        });
+        this.physics.world.enable(this.coins, Phaser.Physics.Arcade.STATIC_BODY);
+        this.coinGroup = this.add.group(this.coins);
+
+        //Create Diamond
+        this.diamond = this.map.createFromObjects("Objects", {
+            name: "diamond",
+            key: "tilemap_sheet",
+            frame: 67
+        })
+        this.physics.world.enable(this.diamond, Phaser.Physics.Arcade.STATIC_BODY);
+        this.diamondGroup = this.add.group(this.diamond);
+    }
 }
