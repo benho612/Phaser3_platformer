@@ -33,6 +33,8 @@ class Load extends Phaser.Scene {
 
         this.load.audio('collect','sounds/coin.wav');
 
+        this.load.audio('Dialogue','sounds/Dialogue.wav');
+        
         const font = new FontFace('PixelFont', 'url(./assets/fonts/PixelOperator8-Bold.ttf)');
 
         font.load().then((loadedFace) => {

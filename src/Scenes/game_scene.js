@@ -28,33 +28,24 @@ class game_scene extends Phaser.Scene {
         this.pauseMenuGroup = null;
         this.isPaused = false;
 
-        this.npcDialogLines = [
-            "Hello traveler!",
-            "Nice day, isn't it?",
-            "Be careful ahead!",
-            "That's all I know."
-        ];
         this.npcDialogIndex = 0;
-        this.inNpcZone = false;
+        this.inNpcZone = {};
         this.inDialogue = false;
 
     }
 
     create() {
         this.map_setting();
-
-        this.background_music();
-
-        this.collect = this.sound.add('collect',{volume: 0.2});
-
-        this.object_creation();
-
-        //water sfx
         this.water_tile_sfx();
 
-        //set npc 
-        my.sprite.npc = this.physics.add.sprite(350, 0, 'platformer_characters', 'tile_0009.png');
-        this.physics.add.collider(my.sprite.npc, this.groundLayer);
+        this.background_music();
+        this.sfx(); 
+
+
+        this.object_creation();
+        this.npc_creation();
+
+
 
         // set up player avatar
         my.sprite.player = this.physics.add.sprite(20, 0, "platformer_characters", "tile_0000.png");
@@ -149,17 +140,20 @@ class game_scene extends Phaser.Scene {
         this.scoreBox.setPosition(my.sprite.player.x, my.sprite.player.y + 40);
         this.show_interact_npc();
 
-        if (this.inNpcZone && Phaser.Input.Keyboard.JustDown(this.keys.E)) 
-        {
-            this.inDialogue = true;
-            this.showNpcMessage(this.npcDialogLines[this.npcDialogIndex]);
-            this.npcDialogIndex++;
-            if (this.npcDialogIndex > this.npcDialogLines.length)
-            {
-                this.npcDialogIndex = 0;
-                this.inDialogue = false;
-            }
-        } 
+        if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+            this.npcGroup.getChildren().forEach(npc => {
+                if (this.inNpcZone[npc.name]) {
+                    const dialog = this.npcDialogMap[npc.name];
+                    this.inDialogue = true;
+                    this.showNpcMessage(dialog.lines[dialog.index], npc);
+                    dialog.index++;
+                    if (dialog.index >= dialog.lines.length) {
+                        dialog.index = 0;
+                        this.inDialogue = false;
+                    }
+                }
+            });
+        }
 
         // Get player's bottom center tile coordinates
         const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
@@ -381,26 +375,36 @@ class game_scene extends Phaser.Scene {
         this.cameras.main.ignore(this.inventoryText);
     }
 
-    showNpcMessage(message) {
+    showNpcMessage(message, npc) {
+
+        if (this.Dialogue.isPlaying) 
+            this.Dialogue.stop();
+        this.Dialogue.play();
+
         this.npcTextBox.setText(message);
-        this.npcTextBox.setPosition(my.sprite.npc.x, my.sprite.npc.y - 40);
+        this.npcTextBox.setPosition(npc.x, npc.y - 40);
         this.npcTextBox.setVisible(true);
     }
 
-    show_interact_npc(){
-        //Npc Overlap
-        if (!this.physics.overlap(my.sprite.player, my.sprite.npc)) 
-            this.inNpcZone = false;
-        else
-            this.inNpcZone = true;
+    show_interact_npc() {
+        let anyNpcInZone = false;
 
-        this.npcText.setPosition(my.sprite.npc.x, my.sprite.npc.y - 40);
+        this.npcGroup.getChildren().forEach(npc => {
+            const isOverlapping = this.physics.overlap(my.sprite.player, npc);
+            this.inNpcZone[npc.name] = isOverlapping;
 
-        if (this.inNpcZone && !this.inDialogue)
-            this.npcText.setVisible(true);
-        else
+            if (isOverlapping && !this.inDialogue) {
+                this.npcText.setText('Press E to talk');
+                this.npcText.setPosition(npc.x, npc.y - 40);
+                this.npcText.setVisible(true);
+                anyNpcInZone = true;
+            }
+        });
+
+        // Hide text if no NPC is near or we're in dialogue
+        if (!anyNpcInZone || this.inDialogue) {
             this.npcText.setVisible(false);
-        
+        }
     }
 
     updateInventoryUI(){
@@ -536,7 +540,7 @@ class game_scene extends Phaser.Scene {
     }
 
     text_creation(){
-        this.npcText = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, 'Press E to talk', {
+        this.npcText = this.add.text(0, 0, '', {
             fontFamily: 'PixelFont',
             fontSize: '10px',
             color: '#ffffff',
@@ -544,7 +548,7 @@ class game_scene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5);
 
-        this.npcTextBox = this.add.text(my.sprite.npc.x, my.sprite.npc.y - 40, '', {
+        this.npcTextBox = this.add.text(0, 0, '', {
             fontFamily: 'PixelFont',
             fontSize: '10px',
             fill: '#ffffff',
@@ -591,5 +595,34 @@ class game_scene extends Phaser.Scene {
         })
         this.physics.world.enable(this.diamond, Phaser.Physics.Arcade.STATIC_BODY);
         this.diamondGroup = this.add.group(this.diamond);
+    }
+
+    npc_creation(){
+        //set npc 
+        this.npcGroup = this.add.group();
+
+        const npcData = [
+            { x: 350, y: 0, key: 'npc1', dialog: ["Hey!", "Bring me Diamonds.",""],skin: "tile_0009.png" },
+            { x: 540, y: 0, key: 'npc2', dialog: ["Hello!", "Jump carefully.",""], skin: "tile_0006.png" }
+        ];
+
+        this.npcDialogMap = {};  // Stores dialogues per NPC
+
+        npcData.forEach(npcInfo => {
+            const npc = this.physics.add.sprite(npcInfo.x, npcInfo.y, 'platformer_characters', npcInfo.skin);
+            npc.setCollideWorldBounds(true);
+            npc.name = npcInfo.key;
+
+            this.physics.add.collider(npc, this.groundLayer);
+            this.npcGroup.add(npc);
+
+            this.inNpcZone[npcInfo.key] = false;
+            this.npcDialogMap[npcInfo.key] = { lines: npcInfo.dialog, index: 0 };
+        });
+    }
+
+    sfx(){
+        this.collect = this.sound.add('collect',{volume: 0.2});
+        this.Dialogue = this.sound.add('Dialogue',{volume: 0.2});
     }
 }
