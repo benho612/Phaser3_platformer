@@ -333,14 +333,25 @@ class game_scene extends Phaser.Scene {
     }
 
     background_music() {
-        // Only create one instance of bgm globally
+        const savedVolume = parseFloat(localStorage.getItem('volume') || '0.5');
+
+        // Check if 'bgm' already exists
         if (!this.sound.get('bgm')) {
-            const savedVolume = parseFloat(localStorage.getItem('volume') || '0.5');
-            const bgm = this.sound.add('bgm', {
+            this.bgm = this.sound.add('bgm', {
                 loop: true,
                 volume: savedVolume
             });
-            bgm.play();
+            this.bgm.play();
+        } else {
+            this.bgm = this.sound.get('bgm');
+
+            // If the BGM exists but isn't playing (e.g., paused between levels), resume it
+            if (!this.bgm.isPlaying) {
+                this.bgm.play();
+            }
+
+            // Always ensure the volume is current
+            this.bgm.setVolume(savedVolume);
         }
     }
 
