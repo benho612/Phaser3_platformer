@@ -24,28 +24,26 @@
             "scaleInEditor": 1
         },
         "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj": {
-            "scale": 1,
-            "selectedLayer": 2,
+            "scale": 2,
+            "selectedLayer": 5,
             "viewCenter": {
-                "x": 2480,
-                "y": 198.5
+                "x": 198.5,
+                "y": 312.75
             }
         },
         "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj#Pixel_Platformer": {
-            "scaleInDock": 1.5
+            "scaleInDock": 1.5,
+            "scaleInEditor": 4
         },
         "C:/Users/hoben/OneDrive/Documents/GitHub/Phaser3_platformer/assets/level2.tmj#tilemap-backgrounds_packed": {
             "scaleInDock": 1
         },
         "level1.tmx": {
-            "expandedObjectLayers": [
-                4
-            ],
-            "scale": 1,
-            "selectedLayer": 4,
+            "scale": 1.5,
+            "selectedLayer": 5,
             "viewCenter": {
-                "x": 580,
-                "y": 261.5
+                "x": 2391.333333333333,
+                "y": 308.33333333333337
             }
         },
         "level1.tmx#Pixel_Platformer": {

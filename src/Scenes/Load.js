@@ -24,10 +24,13 @@ class Load extends Phaser.Scene {
             frameHeight: 18
         });
 
+        this.load.image('left_tube',"waterTube/left.png");
+        this.load.image('mid_tube',"waterTube/middle.png");
+        this.load.image('right_tube',"waterTube/right.png");
+        
         // Particle assets (if using Kenny Particle Pack)
         this.load.multiatlas("kenny-particles", "kenny-particles.json");
 
-        //
         this.load.audio('bgm', 'music/time_for_adventure.mp3');
 
         this.load.audio('jump', 'sounds/jump.wav');

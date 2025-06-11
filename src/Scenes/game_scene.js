@@ -54,6 +54,7 @@ class game_scene extends Phaser.Scene {
         my.sprite.player.setCollideWorldBounds(true);
         my.sprite.player.setMaxVelocity(200, 600);
         this.physics.add.collider(my.sprite.player, this.groundLayer);
+        this.physics.add.collider(my.sprite.player, this.movingPlatforms);
 
         my.vfx.walking = this.add.particles(0, 0, "kenny-particles", {
             frame: ['smoke_03.png', 'smoke_09.png'],
@@ -153,11 +154,29 @@ class game_scene extends Phaser.Scene {
             });
         }
 
+        //moving plaformers
+        this.movingPlatforms.getChildren().forEach(tile => {
+            if (!tile.body) return;
+
+            // Enforce gravity OFF just in case
+            tile.body.setAllowGravity(false);
+        });
+
+        this.tubeGroups.forEach(tube => {
+            tube.parts.forEach(part => {
+                part.setVelocityX(tube.speed);
+            });
+
+            const mid = tube.parts[1];
+            if (mid.x <= tube.minX || mid.x >= tube.maxX) {
+                tube.speed *= -1; // 🔁 Reverse direction
+            }
+        });
+
+
         // Get player's bottom center tile coordinates
         const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
         const playerTileY = this.groundLayer.worldToTileY(my.sprite.player.y + my.sprite.player.height / 2);
-
-        // Check the tile at that position
         const currentTile = this.groundLayer.getTileAt(playerTileX, playerTileY);
 
         // Determine if player is in water
@@ -233,6 +252,17 @@ class game_scene extends Phaser.Scene {
             my.sprite.player.anims.play('idle');
             my.vfx.walking.stop();
         }
+        this.movingPlatforms.getChildren().forEach(platform => {
+            const touchingFromAbove =
+                my.sprite.player.body.blocked.down &&
+                platform.body.touching.up &&
+                Phaser.Geom.Intersects.RectangleToRectangle(my.sprite.player.getBounds(), platform.getBounds());
+
+            if (touchingFromAbove) {
+                const delta = this.game.loop.delta / 1000;
+                my.sprite.player.x += platform.body.velocity.x * delta;
+            }
+        });
 
         this.win_lose_mechanics();
         this.double_jump_mechanics();
@@ -242,9 +272,7 @@ class game_scene extends Phaser.Scene {
     win_lose_mechanics() {
         const playerTileX = this.groundLayer.worldToTileX(my.sprite.player.x);
         const playerTileY = this.groundLayer.worldToTileY(my.sprite.player.y + my.sprite.player.height / 2);
-
         const tile = this.decorationLayer.getTileAt(playerTileX, playerTileY);
-        const deathTile = this.groundLayer.getTileAt(playerTileX, playerTileY);
 
         // Win condition
         if (tile && tile.properties.isFlag && !this.levelCompleted) {
@@ -257,30 +285,30 @@ class game_scene extends Phaser.Scene {
             this.bgm.stop();
         }
 
-        // Death condition with animation and sound
-        if (deathTile && deathTile.properties.isDie && !this.levelFailed && !this.levelCompleted) {
-            this.levelFailed = true;
+        this.physics.add.overlap(my.sprite.player, this.spikeGroup, () => {
+            if (!this.levelFailed && !this.levelCompleted) {
+                this.levelFailed = true;
 
-            // Stop background music
-            this.bgm.stop();
+                this.bgm.stop();
+                this.hurt.play();
 
-            // Play hurt sound
-            this.hurt.play();
+                my.sprite.player.setVelocity(0);
+                my.sprite.player.body.enable = false;
 
-            my.sprite.player.setVelocity(0);
-            my.sprite.player.body.enable = false;
-            
-            // Rotate player sprite
-            this.tweens.add({
-                targets: my.sprite.player,
-                angle: 360,
-                duration: 1000,
-                ease: 'Cubic.easeInOut',
-                onComplete: () => {
-                    this.scene.start("end_scene", { result: "failed", score: this.score });
-                }
-            });
-        }
+                this.tweens.add({
+                    targets: my.sprite.player,
+                    angle: 360,
+                    duration: 1000,
+                    ease: 'Cubic.easeInOut',
+                    onComplete: () => {
+                        this.scene.start("end_scene", {
+                            result: "failed",
+                            score: this.score
+                        });
+                    }
+                });
+            }
+        });
     }
 
     double_jump_mechanics()
@@ -662,6 +690,50 @@ class game_scene extends Phaser.Scene {
         })
         this.physics.world.enable(this.diamond, Phaser.Physics.Arcade.STATIC_BODY);
         this.diamondGroup = this.add.group(this.diamond);
+
+        //spike objects
+        this.spike = this.map.createFromObjects("SpikeObjects", {
+            name: "spike",
+            key: "tilemap_sheet",
+            frame: 68
+        })
+        this.physics.world.enable(this.spike, Phaser.Physics.Arcade.STATIC_BODY);
+        this.spikeGroup = this.add.group(this.spike);
+        
+        //moving platform
+        this.movingPlatforms = this.physics.add.group(); 
+        this.tubeGroups = [];
+
+        const movingPlatformObjects = this.map.createFromObjects("MovingPlatforms", {
+            name: "" // or "platform" if you set a name in Tiled
+        });
+
+        movingPlatformObjects.forEach((obj) => {
+            const x = obj.x;
+            const y = obj.y;
+
+            const tubeLeft = this.physics.add.sprite(x, y, 'left_tube');
+            const tubeMid = this.physics.add.sprite(x + 16, y, 'mid_tube');
+            const tubeRight = this.physics.add.sprite(x + 32, y, 'right_tube');
+
+            [tubeLeft, tubeMid, tubeRight].forEach(part => {
+                part.setImmovable(true);
+                part.body.pushable = false;
+                part.body.setAllowGravity(false);
+                this.movingPlatforms.add(part);
+            });
+
+            const speed = Phaser.Math.Between(30, 70);
+            const direction = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+
+            this.tubeGroups.push({
+                parts: [tubeLeft, tubeMid, tubeRight],
+                speed: speed * direction,
+                minX: x - 100,
+                maxX: x + 100
+            });
+        });
+
     }
 
     npc_creation(){
@@ -675,7 +747,7 @@ class game_scene extends Phaser.Scene {
                 { x: 2315, y: 0, key: 'npc3', dialog: ["Woah", "You shouldn't be here.","This is too dangerous!",""], skin: "tile_0004.png" }
             ],
             level2: [
-                { x: 150, y: 0, key: 'npc4', dialog: ["Woah", "Just Saying our level designer","Make this map more spike, so watch out",""], skin: "tile_0004.png" }
+                { x: 150, y: 0, key: 'npc4', dialog: ["Woah", "Just Saying our level designer","Make this map more difficulty",""], skin: "tile_0004.png" }
             ]
         };
 
@@ -712,12 +784,12 @@ class game_scene extends Phaser.Scene {
                         scene.npcItemGiven[key] = true;
                         npc.setFrame("tile_0007.png");
                         scene.showNpcMessage(`${key}: Thanks for the ${requiresItem}!`, npc);
-                        this.sound.play("Dialogue");
+                        this.Dialogue.play();
                         scene.updateInventoryUI();
                         return;
                     } else {
                         scene.showNpcMessage(`${key}: Bring me a ${requiresItem}.`, npc);
-                        this.sound.play("Dialogue");
+                        this.Dialogue.play();
                         return;
                     }
                 }
@@ -725,7 +797,7 @@ class game_scene extends Phaser.Scene {
                 const dialogState = scene.npcDialogMap[key];
                 const currentLine = dialogState.lines[dialogState.index] || `${key}: Hello.`;
                 scene.showNpcMessage(currentLine, npc);
-                this.sound.play("Dialogue");
+                this.Dialogue.play();
 
                 dialogState.index++;
                 if (dialogState.index >= dialogState.lines.length) {
@@ -736,7 +808,6 @@ class game_scene extends Phaser.Scene {
             };
         });
     }
-
 
     sfx(){
         this.collect = this.sound.add('collect',{volume: 0.2});
