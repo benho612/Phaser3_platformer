@@ -29,7 +29,6 @@ class end_scene extends Phaser.Scene {
                 }).setOrigin(0.5).setInteractive();
 
                 level2Button.on("pointerdown", () => {
-                    console.log("Passing inventory to Level 2:", this.inventory);
                     this.scene.start("game_scene", {
                         level: "level2",
                         inventory: this.inventory

@@ -168,8 +168,13 @@ class game_scene extends Phaser.Scene {
             });
 
             const mid = tube.parts[1];
-            if (mid.x <= tube.minX || mid.x >= tube.maxX) {
-                tube.speed *= -1; // 🔁 Reverse direction
+            if (mid.x <= tube.minX) {
+            tube.speed = Math.abs(tube.speed);  // Force right
+            tube.parts.forEach(p => p.x = tube.minX + (p.x - mid.x)); // Clamp position
+            }
+            else if (mid.x >= tube.maxX) {
+                tube.speed = -Math.abs(tube.speed); // Force left
+                tube.parts.forEach(p => p.x = tube.maxX + (p.x - mid.x)); // Clamp position
             }
         });
 
@@ -747,7 +752,8 @@ class game_scene extends Phaser.Scene {
                 { x: 2315, y: 0, key: 'npc3', dialog: ["Woah", "You shouldn't be here.","This is too dangerous!",""], skin: "tile_0004.png" }
             ],
             level2: [
-                { x: 150, y: 0, key: 'npc4', dialog: ["Woah", "Just Saying our level designer","Make this map more difficulty",""], skin: "tile_0004.png" }
+                { x: 150, y: 0, key: 'npc4', dialog: ["Woah", "Just Saying our level designer","Make this map more difficult","so good luck",""], skin: "tile_0004.png" },
+                { x: 2200, y: 0, key: 'npc5', dialog: ["Hey!", "Bring me Diamonds.",""], skin: "tile_0009.png", requiresItem: "diamond"}
             ]
         };
 
